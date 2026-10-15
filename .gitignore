@@ -117,3 +117,5 @@ sources.list.*
 
 # Generated mirror configs
 apt-retries-count
+.orbion/**/*.local.*
+.orbion/worktrees/

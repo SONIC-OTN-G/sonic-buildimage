@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" agent="drawio-skill" version="21.0.0" type="device">
+  <diagram name="Linecard Write Merge" id="linecard-write-merge">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1"
+                  connect="1" arrows="1" fold="1" page="1" pageScale="1"
+                  pageWidth="1400" pageHeight="1150" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ===== 参与者 ===== -->
+        <mxCell id="participant-src" value="CLI&#xa;(数据生产者)"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="55" y="60" width="170" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="participant-rds" value="redis CONFIG_DB"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="415" y="60" width="170" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="participant-con" value="Consumer&#xa;(含 m_toSync 队列)"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="775" y="60" width="170" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="participant-orch" value="Orch 子类&#xa;(业务逻辑)"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="1135" y="60" width="170" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ===== 生命线 ===== -->
+        <mxCell id="lifeline-src" style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="140" y="110" as="sourcePoint" />
+            <mxPoint x="140" y="1080" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lifeline-rds" style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="500" y="110" as="sourcePoint" />
+            <mxPoint x="500" y="1080" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lifeline-con" style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="860" y="110" as="sourcePoint" />
+            <mxPoint x="860" y="1080" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lifeline-orch" style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1220" y="110" as="sourcePoint" />
+            <mxPoint x="1220" y="1080" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ===== 队列快照与注释(在生命线之上) ===== -->
+        <mxCell id="note-queue-1" value="m_toSync 队列&#xa;LINECARD-1-1&#xa;hostname=lab-lc1&#xa;(新条目入队, 共 1 条)"
+                style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;align=center;"
+                vertex="1" parent="1">
+          <mxGeometry x="740" y="385" width="240" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="note-queue-merge" value="同键合并: hostname 覆盖为最新值&#xa;LINECARD-1-1&#xa;hostname=lab-lc2&#xa;(仍为 1 条; 其他字段保留)"
+                style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;align=center;"
+                vertex="1" parent="1">
+          <mxGeometry x="730" y="735" width="260" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="note-orch" value="只处理一次&#xa;看到: hostname=lab-lc2"
+                style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;align=center;"
+                vertex="1" parent="1">
+          <mxGeometry x="1120" y="905" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="note-summary" value="效果: 两次写入 → 合并为 1 条队列条目 → 仅一次处理, 且取最新值"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;align=center;"
+                vertex="1" parent="1">
+          <mxGeometry x="400" y="1020" width="640" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ===== 消息 ===== -->
+        <mxCell id="msg-write-1" value="写入 hostname=lab-lc1"
+                style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;fontSize=13;strokeWidth=2;labelBackgroundColor=#ffffff;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="140" y="170" as="sourcePoint" />
+            <mxPoint x="500" y="170" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-notify-1" value="通知 #1"
+                style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;fontSize=13;strokeWidth=2;labelBackgroundColor=#ffffff;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="500" y="230" as="sourcePoint" />
+            <mxPoint x="860" y="230" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-read-1" value="HGETALL 读取当前行"
+                style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;fontSize=13;strokeWidth=2;labelBackgroundColor=#ffffff;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="860" y="295" as="sourcePoint" />
+            <mxPoint x="500" y="295" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-reply-1" value="返回 hostname=lab-lc1"
+                style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;fontSize=13;strokeWidth=2;labelBackgroundColor=#ffffff;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="500" y="355" as="sourcePoint" />
+            <mxPoint x="860" y="355" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-write-2" value="写入 hostname=lab-lc2"
+                style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;fontSize=13;strokeWidth=2;labelBackgroundColor=#ffffff;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="140" y="520" as="sourcePoint" />
+            <mxPoint x="500" y="520" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-notify-2" value="通知 #2"
+                style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;fontSize=13;strokeWidth=2;labelBackgroundColor=#ffffff;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="500" y="580" as="sourcePoint" />
+            <mxPoint x="860" y="580" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-read-2" value="HGETALL 读取当前行"
+                style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;fontSize=13;strokeWidth=2;labelBackgroundColor=#ffffff;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="860" y="645" as="sourcePoint" />
+            <mxPoint x="500" y="645" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-reply-2" value="返回 hostname=lab-lc2 (最新)"
+                style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;fontSize=13;strokeWidth=2;labelBackgroundColor=#ffffff;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="500" y="705" as="sourcePoint" />
+            <mxPoint x="860" y="705" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-trigger" value="触发业务处理"
+                style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;fontSize=13;strokeWidth=2;labelBackgroundColor=#ffffff;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="860" y="870" as="sourcePoint" />
+            <mxPoint x="1220" y="870" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-action" value="写入 APPL_DB (仅一次)"
+                style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;fontSize=13;strokeWidth=2;labelBackgroundColor=#ffffff;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1220" y="985" as="sourcePoint" />
+            <mxPoint x="500" y="985" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

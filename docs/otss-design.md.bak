@@ -1,0 +1,584 @@
+# OTSS 容器功能设计文档
+
+> 版本:V1.0
+> 平台:SONiC-OTN(`otn_pre_202411` 分支)
+> 相关文档:`docs/linecard-config-flow.md`(配置下发链路解析)、`docs/distributed-chassis-architecture.md`(分布式机架架构设计)
+
+## 1. 概述
+
+### 1.1 功能定位
+
+OTSS(OTN Switch State Service)是 SONiC-OTN 的**业务编排层容器**,部署于每槽位(ASIC 命名空间),负责将配置面的意图数据(CONFIG_DB)翻译为对硬件的操作指令(OTAI API),并将硬件的运行时状态(状态变更、告警、性能数据)回写到状态库(STATE_DB)供上层查询。
+
+OTSS 是配置下发链路的**中间枢纽**:
+
+```
+CLI / 网管 → CONFIG_DB → [OTSS] → APPL_DB → [OTSS/orchagent] → ASIC_DB → syncd-ot → 硬件
+                                    ↑                                          |
+                                    └── 状态/告警/PM ←── OTAI 通知 ←──────────┘
+```
+
+### 1.2 需求背景
+
+SONiC 原生架构面向数据通信交换机(swss + syncd + SAI)。OTN 光传输设备的管理模型(线卡、放大器、衰减器、保护倒换、OSC、OTDR 等)无法映射到标准 SAI 接口。OTSS 应运而生,以 OTAI(Open Transport Adapter Interface)为核心抽象,在保留 SONiC 基础设施(Redis 数据库、容器化、systemd 服务管理)的前提下,替换标准 swss/syncd 模块,适配 OTN 网元的管理需求。
+
+### 1.3 使用场景
+
+| 场景 | 触发方式 | OTSS 职责 |
+|---|---|---|
+| 线卡配置(插卡/换卡) | `config slot N type P230C` | linecardmgrd 消费 LINECARD 表 → 创建/移除线卡 OTAI 对象 |
+| 模块配置(EDFA 增益、VOA 衰减等) | `config slot N edfa/voa/olp ...` | configsyncd 同步模块表 → 对应 orch 调用 OTAI set |
+| 运行时状态上报 | 硬件中断 / 定时采集 | orchagent 处理 OTAI 通知 → 写 STATE_DB |
+| 告警上报 | 硬件告警触发 | orchagent 告警回调 → STATE_DB 告警表 |
+| 性能数据(PM)采集 | flex_counter 定时器 | orchagent 触发 OTAI stats 读取 → COUNTERS_DB |
+| 保护倒换(OLP) | 自动(AI 检测)或手动 | apsorch 执行倒换 → 状态回写 + 通知 |
+
+### 1.4 方案特点与价值
+
+| 特点 | 说明 |
+|---|---|
+| **OTAI 接口抽象** | 硬件操作全部经 24 种 OTAI 对象类型抽象,OTSS 不直接操作硬件 —— 更换硬件仅需替换 syncd-ot 的 vendor OTAI 库,OTSS 零改动 |
+| **三进程分工** | linecardmgrd(LINECARD 表)+ configsyncd(15 种模块表)+ orchagent(业务编排)各司其职,单一职责 |
+| **事件驱动** | 基于 Redis keyspace 通知(CONFIG/STATE)与 'G' 门铃(APPL)的纯异步事件驱动,无轮询 |
+| **状态机门控** | FSM(NOT_READY → READY → WORK)确保线卡完全就绪后才接受模块配置,防止乱序 |
+| **同步应答** | operation-id + 应答频道机制,CLI 写入后可确认硬件生效或超时回滚 |
+| **SONiC 生态兼容** | 复用 Redis 多库架构、容器化部署、systemd 服务编排、flex_counter 框架 |
+
+### 1.5 符合的标准/协议
+
+| 标准/协议 | 应用方式 |
+|---|---|
+| OTAI(私有接口规范) | 全部硬件操作的唯一接口(24 种对象类型、~400 属性) |
+| OpenConfig Line Terminal / Line Amplifier(参考) | OTAI 对象模型设计参考(TRANSCEIVER、LOGICAL_CHANNEL 等) |
+| SONiC 数据库架构 | Redis 多实例(每命名空间独立)、CONFIG/APPL/ASIC/STATE/COUNTERS 五库分离 |
+
+### 1.6 IPO 描述
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        OTSS 容器                                │
+│                                                                 │
+│  Input:                    Process:                  Output:    │
+│  ├─ CONFIG_DB 表变更        ├─ linecardmgrd          ├─ APPL_DB │
+│  │  (keyspace 通知)         │  (LINECARD 管理)       │  (APP_* 表)│
+│  │                          │                        │          │
+│  ├─ APPL_DB 事件            ├─ configsyncd            ├─ ASIC_DB │
+│  │  ('G' 门铃 + 队列)       │  (15 种模块表同步)      │  (OTAI    │
+│  │                          │                        │   对象)  │
+│  ├─ OTAI 通知               ├─ orchagent              │          │
+│  │  (状态/告警/PM,          │  (OTAI 调用 + FSM      ├─ STATE_DB│
+│  │   从 syncd-ot)           │   + 通知处理)           │  (状态/  │
+│  │                          │                        │   告警)  │
+│  └─ STATE_DB 事件           └─ object-count           │          │
+│     (oper-status)             (就绪屏障)              └─ 应答频道│
+│                                                       (操作确认)│
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## 2. 功能设计
+
+### 2.1 逻辑架构
+
+OTSS 容器内三个进程通过 Redis 数据库交互,共享同一命名空间的数据库实例:
+
+```
+┌─────────────── OTSS 容器(每槽位一个)────────────────┐
+│                                                      │
+│  ┌──────────────┐  ┌──────────────┐  ┌───────────┐ │
+│  │ linecardmgrd │  │ configsyncd  │  │orchagent  │ │
+│  │              │  │              │  │           │ │
+│  │ 订阅:        │  │ 订阅:        │  │ 订阅:     │ │
+│  │ CONFIG_DB    │  │ CONFIG_DB    │  │ APPL_DB   │ │
+│  │ LINECARD 表  │  │ 15种模块表   │  │ APP_* 表  │ │
+│  │              │  │              │  │           │ │
+│  │ 写入:        │  │ 写入:        │  │ 写入:     │ │
+│  │ APPL_DB      │  │ APPL_DB      │  │ ASIC_DB   │ │
+│  │ APP_LINECARD │  │ APP_* (1:1)  │  │ STATE_DB  │ │
+│  └──────┬───────┘  └──────┬───────┘ │           │ │
+│         │                 │         │ 订阅:     │ │
+│         │                 │         │ STATE_DB  │ │
+│         │                 │         │ OTAI通知  │ │
+│         ▼                 ▼         └─────┬─────┘ │
+│  ┌──────────────────────────────────┐      │       │
+│  │         Redis(APPL_DB)           │      │       │
+│  │  APP_LINECARD | APP_ATTENUATOR   │      │       │
+│  │  APP_AMPLIFIER | APP_APS | ...   │      │       │
+│  └──────────────────────────────────┘      │       │
+│                                            ▼       │
+│  ┌──────────────────────────────────────────┐     │
+│  │         otai_redis 适配层                 │     │
+│  │  (OTAI API → Redis ASIC_DB 序列化)       │     │
+│  └──────────────────────────────────────────┘     │
+└────────────────────────────────────────────────────┘
+         │                          │
+         ▼                          ▼
+   CONFIG_DB(上游)          ASIC_DB → syncd-ot(下游)
+```
+
+三个进程的职责边界:
+
+| 进程 | 职责 | 代码位置 |
+|---|---|---|
+| linecardmgrd | 消费 CONFIG_DB LINECARD 表;电源状态检查与保留重试;写 APP_LINECARD | `src/sonic-otss/cfgmgr/` |
+| configsyncd | 启动时全量同步 15 种模块表(CONFIG_DB → APPL_DB);运行时 1:1 增量同步;注入 object-count 就绪屏障 | `src/sonic-otss/configsyncd/` |
+| orchagent | 消费 APPL_DB 全部 APP_* 表;FSM 状态机;OTAI API 调用(create/set);OTAI 通知处理 → STATE_DB;flex_counter PM 采集 | `src/sonic-otss/orchagent/` |
+
+### 2.2 主时序图:模块配置下发(以 VOA 衰减值设置为例)
+
+```
+ CLI         CONFIG_DB      configsyncd     APPL_DB      orchagent     ASIC_DB     syncd-ot
+(主控)      (线卡本地)      (OTSS进程)    (线卡本地)    (OTSS进程)              (容器)
+  │             │               │             │             │           │           │
+  │ HSET        │               │             │             │           │           │
+  │ ATTENUATOR  │               │             │             │           │           │
+  │ |ATT-1-2-1  │               │             │             │           │           │
+  │ attenuation │               │             │             │           │           │
+  │ =20.0       │               │             │             │           │           │
+  │ +op-id:uuid │               │             │             │           │           │
+  │────────────►│               │             │             │           │           │
+  │             │ PUBLISH       │             │             │           │           │
+  │             │ __keyspace@4__│             │             │           │           │
+  │             │ :ATTENUATOR|… │             │             │           │           │
+  │             │───────►       │             │             │           │           │
+  │             │               │ pops()      │             │           │           │
+  │             │               │ HGETALL整行 │             │           │           │
+  │             │◄──────────────│             │             │           │           │
+  │             │               │             │             │           │           │
+  │             │               │ HSET        │             │           │           │
+  │             │               │ APP_ATTENUATOR            │           │           │
+  │             │               │ :ATT-1-2-1 │             │           │           │
+  │             │               │ attenuation=20.0          │           │           │
+  │             │               │ + LPUSH工作项             │           │           │
+  │             │               │ + PUBLISH 'G'             │           │           │
+  │             │               │────────────►│             │           │           │
+  │             │               │             │ 'G'唤醒     │           │           │
+  │             │               │             │──────►      │           │           │
+  │             │               │             │             │           │           │
+  │             │               │             │             │ OTAI set_attenuator    │
+  │             │               │             │             │ _attribute()          │
+  │             │               │             │             │───────────────────►   │
+  │             │               │             │             │           │──────────►│
+  │             │               │             │             │           │  OTAI调用  │
+  │             │               │             │             │           │  执行      │
+  │             │               │             │             │           │◄──────────│
+  │             │               │             │             │           │  结果     │
+  │             │               │             │             │           │           │
+  │             │               │             │             │ PUBLISH 应答频道      │
+  │             │               │             │             │ "attenuation-uuid"   │
+  │             │               │             │             │───────────────────►   │
+  │             │               │             │             │           │           │
+  │◄──(应答: 成功/失败,经 CLI subscribe_channel 轮询收到)─────────────────────────────│
+```
+
+时序要点:
+1. **CLI 写入即返回到等待**:HSET 后 CLI 进程 psubscribe 应答频道,进入 1 秒粒度轮询等待(非忙等),最长 120 秒
+2. **configsyncd 的翻译是透明的**:字段 1:1 透传,operation-id 一并带入 APPL_DB
+3. **应答由 orchagent 发布**:OTAI 执行成功/失败经应答频道回到 CLI,失败或超时则 CLI 用预存的 old_value 回滚
+
+### 2.3 子流程:linecardmgrd 处理逻辑(线卡上下电)
+
+```
+                 ┌────────────────────┐
+                 │ linecardmgrd 启动   │
+                 └─────────┬──────────┘
+                           │
+                           ▼
+              ┌────────────────────────┐
+              │ ConsumerTable 构造函数: │
+              │ · WATCH 队列长度         │
+              │ · PSUBSCRIBE            │
+              │   __keyspace@4__:      │
+              │   LINECARD|*           │
+              │ · 启动补读(全表扫描)    │
+              └─────────┬──────────────┘
+                        │
+                        ▼
+              ┌──────────────────────┐
+              │ s.select() 阻塞等待    │◄──────────────────┐
+              └─────────┬────────────┘                    │
+                        │                                 │
+              ┌─────────┴─────────┐                     │
+              │                   │                     │
+        事件到达            超时(SELECT_TIMEOUT)         │
+              │                   │                     │
+              ▼                   ▼                     │
+    ┌──────────────────┐  ┌─────────────────┐           │
+    │ pops() 取出       │  │ doTask() 重处理  │           │
+    │ (key, op, fvs)   │  │ m_toSync 中     │           │
+    │ 填入 m_toSync     │  │ 被保留的条目     │           │
+    └────────┬─────────┘  └────────┬────────┘           │
+             │                     │                     │
+             ▼                     ▼                     │
+    ┌──────────────────────────────────────┐            │
+    │ LineCardMgr::doTask                  │            │
+    │                                      │            │
+    │  for each entry in m_toSync:         │            │
+    │    if op == SET:                     │            │
+    │      ┌─ isLineCardStateOk(alias)?    │            │
+    │      │   读 STATE_DB                 │            │
+    │      │   power-admin-state           │            │
+    │      │   == "POWER_ENABLED"?         │            │
+    │      │                               │            │
+    │      │  否 ──► it++; continue       │            │
+    │      │        (条目保留,等待重试)     │            │
+    │      │                               │            │
+    │      │  是 ──▼                       │            │
+    │      │  setLineCardAttr(alias, fvs)  │            │
+    │      │    m_appLineCardTable.set()   │            │
+    │      │    (HSET+LPUSH+PUBLISH 'G')   │            │
+    │      │    → APP_LINECARD 表          │            │
+    │      │    条目消费,从 m_toSync 移除   │            │
+    │      │                               │            │
+    │    elif op == DEL:                   │            │
+    │      记录日志(当前无动作)             │            │
+    │      条目消费                         │            │
+    └──────────────────────────────────────┘            │
+             │                                          │
+             │    (条目未消费时,回到 select 等待)────────┘
+             │
+             ▼ (仅在成功消费后)
+    下游: linecardorch 消费 APP_LINECARD
+```
+
+**关键设计:保留重试**。配置时序为"先停服务 → 写 CONFIG_DB → 起服务 → 模拟上电"(CLI 5 步),linecardmgrd 启动后必然先遇到"有配置但电源未使能"的窗口期。条目不消费、不丢弃,由主循环的超时分支周期性重试,直到 STATE_DB 出现 POWER_ENABLED。这解决了配置与上电的竞态,无需任何显式同步协议。
+
+### 2.4 子流程:orchagent 状态机(linecardorch FSM)
+
+```
+                 ┌───────────────────┐
+                 │ OTSS 容器启动      │
+                 │ orchagent 进程     │
+                 └────────┬──────────┘
+                          │
+                          ▼
+              ┌───────────────────────┐
+              │ LinecardOrch 构造函数  │
+              │ 检查 STATE_DB:        │
+              │ LINECARD|LINECARD-1-N │
+              │ oper-status?          │
+              └────────┬──────────────┘
+                       │
+          ┌────────────┼────────────┐
+          │ oper-status│            │ 无记录
+          │ == ACTIVE  │ != ACTIVE  │
+          ▼            ▼            ▼
+   ┌──────────┐  ┌──────────┐  ┌──────────────┐
+   │ READY    │  │NOT_READY │  │ NOT_READY    │
+   └────┬─────┘  └────┬─────┘  └──────┬───────┘
+        │             │               │
+        │             │  订阅 STATE_DB LINECARD 表
+        │             │  (SubscriberStateTable)
+        │             │               │
+        │             ▼               ▼
+        │      ┌─────────────────────────────┐
+        │      │ doLinecardStateTask:        │
+        │      │ 监听 oper-status 字段       │
+        │      │ 变更为 "ACTIVE" 时          │
+        │      │ → setState(READY)          │
+        │      └────────────┬────────────────┘
+        │                   │
+        ▼                   ▼
+   ┌──────────────────────────────────────┐
+   │ READY 状态:                           │
+   │ 收到 APPL_DB APP_LINECARD 事件         │
+   │ → createLinecard(key, create_attrs)   │
+   │   · translateOtaiObjectAttr()         │
+   │   · 注册通知回调                       │
+   │   · otai_linecard_api->create()       │
+   │   → setState(WORK)                    │
+   └──────────────────┬────────────────────┘
+                      │
+                      ▼
+   ┌──────────────────────────────────────┐
+   │ WORK 状态:                            │
+   │ 收到 APPL_DB APP_* 事件                │
+   │ → setOtaiObjectAttrs(key, attrs, op_id)│
+   │   · otai_xxx_api->set_attribute()     │
+   │   · 执行结果 PUBLISH 到应答频道        │
+   │                                      │
+   │ 收到 OTAI 通知                        │
+   │ → onLinecardStateChangeNotify()       │
+   │   写 STATE_DB oper-status             │
+   │ → onLinecardAlarmNotify()             │
+   │   写 STATE_DB 告警表                  │
+   └──────────────────────────────────────┘
+```
+
+**FSM 语义**:
+- `NOT_READY → READY`:线卡硬件就绪(STATE_DB oper-status=ACTIVE,由 syncd-ot 的 OTAI 状态通知写入)
+- `READY → WORK`:收到 APP_LINECARD 事件后创建线卡 OTAI 对象成功
+- 门控效果:NOT_READY 期间 APPL_DB 事件仅缓存不执行(防止向未就绪硬件下发);READY 只接受 create;WORK 只接受 set
+
+### 2.5 子流程:configsyncd 启动与 object-count 注入
+
+```
+                 ┌───────────────────┐
+                 │ configsyncd 启动   │
+                 └────────┬──────────┘
+                          │
+                          ▼
+              ┌───────────────────────────────────────┐
+              │ for each of 15 个 ConfigSync 对象:     │
+              │   handleConfigFromConfigDB()           │
+              │   · 全表扫描 CONFIG_DB 中对应表         │
+              │   · 如有数据: 1:1 复制到 APPL_DB       │
+              │   · 返回 true                          │
+              └────────────────┬──────────────────────┘
+                               │
+                               ▼
+              ┌───────────────────────────────────────┐
+              │ objects.size() = 有数据的表类型数       │
+              │ (如 P230C: PORT+TRANSCEIVER+LOGICAL_  │
+              │  CHANNEL+OCH+OTN+ETHERNET+ASSIGNMENT+ │
+              │  INTERFACE+LLDP+...= 10)              │
+              └────────────────┬──────────────────────┘
+                               │
+                               ▼
+              ┌───────────────────────────────────────┐
+              │ 等待 APP_LINECARD 键出现               │
+              │ (linecardmgrd 必须先写出)              │
+              │                                      │
+              │ while (linecard_table.getKeys()==0):  │
+              │   sleep(1); log("Waiting for ...")    │
+              └────────────────┬──────────────────────┘
+                               │ (APP_LINECARD 键出现)
+                               ▼
+              ┌───────────────────────────────────────┐
+              │ for each linecard_key:                │
+              │   linecard_pst.set(key,               │
+              │     {"object-count": "10"})           │
+              │   → 写入 APP_LINECARD 表               │
+              │                                     │
+              │ (orchagent 收到后调 initConfigTotalNum │
+              │  = 就绪屏障,等 10 种对象全部到齐)      │
+              └────────────────┬──────────────────────┘
+                               │
+                               ▼
+              ┌───────────────────────────────────────┐
+              │ 进入正常事件循环:                      │
+              │ select() 等待 15 个 CONFIG_DB 表事件   │
+              │ → 变更 1:1 同步到 APPL_DB             │
+              └──────────────────────────────────────┘
+```
+
+**object-count 的设计意图**:它不是配置数据,而是给 orchagent 的**就绪屏障** —— 告知"该线卡的配置包含 10 种对象类型,全部到齐后才视为配置完成"。这防止 orchagent 在部分配置同步完成时就开始创建对象导致不一致。
+
+### 2.6 子流程:通知处理流程(OTAI → STATE_DB)
+
+```
+syncd-ot            OTAI通知频道       orchagent           STATE_DB
+(容器)                                (OTSS进程)
+   │                                     │                 │
+   │ 硬件产生事件                         │                 │
+   │ (状态变更/告警/PM数据)               │                 │
+   │                                     │                 │
+   │ otai_linecard_api 回调触发           │                 │
+   │ → 序列化为 OTAI 通知格式             │                 │
+   │ → LPUSH 到 OTAI 通知队列             │                 │
+   │ → PUBLISH 'G'                       │                 │
+   │────────────────────────────────────►│                 │
+   │                                     │                 │
+   │                              NotificationConsumer     │
+   │                              .pops()                 │
+   │                                     │                 │
+   │                              判断通知类型:            │
+   │                              ┌────────────────┐      │
+   │                              │ STATE_CHANGE:  │      │
+   │                              │ → 解析新状态    │      │
+   │                              │ → 写 STATE_DB  │      │
+   │                              │   LINECARD|    │      │
+   │                              │   LINECARD-1-N │      │
+   │                              │   oper-status  │─────►│
+   │                              │                │      │
+   │                              │ ALARM:         │      │
+   │                              │ → 解析告警详情 │      │
+   │                              │ → 写 STATE_DB  │─────►│
+   │                              │   告警表        │      │
+   │                              │                │      │
+   │                              │ PM_DATA:       │      │
+   │                              │ → 写COUNTERS_DB│─────►│
+   │                              │   (flex_counter)│     │
+   │                              └────────────────┘      │
+```
+
+### 2.7 外部接口提取
+
+从上述设计提取 OTSS 的全部外部接口:
+
+| 接口 | 方向 | 通道/机制 | 内容 |
+|---|---|---|---|
+| CONFIG_DB LINECARD 表 | 输入 | keyspace 通知 | 线卡类型、板模式、管理状态 |
+| CONFIG_DB 15 种模块表 | 输入 | keyspace 通知 | AMPLIFIER/ATTENUATOR/APS/APS_PORT/OSC/OCM/OTDR/OCH/OTN/ETHERNET/LOGICAL_CHANNEL/PHYSICAL_CHANNEL/ASSIGNMENT/INTERFACE/LLDP |
+| APPL_DB APP_LINECARD | 输入/输出 | 'G' 门铃 + 队列 | 线卡属性(orchagent 消费;linecardmgrd/configsyncd 生产) |
+| APPL_DB APP_* (15 种) | 输入/输出 | 'G' 门铃 + 队列 | 模块属性(各 orch 消费;configsyncd 生产) |
+| ASIC_DB | 输出 | otai_redis 序列化 | OTAI 对象 create/set/remove |
+| STATE_DB LINECARD 表 | 读/写 | Table.hget / hset | oper-status、电源状态 |
+| STATE_DB 各模块表 | 写 | Table.set | 运行状态、告警 |
+| OTAI 通知频道 | 输入 | NotificationConsumer | 状态变更、告警、PM、OCM 频谱、OTDR 结果 |
+| OTAI 应答频道 | 输出 | NotificationProducer | operation-id 执行结果 |
+
+## 3. 接口设计
+
+### 3.1 输入接口:CONFIG_DB(消费)
+
+| 属性 | 说明 |
+|---|---|
+| **作用** | 接收配置面的意图数据(线卡类型、模块参数) |
+| **应用场景** | CLI/网管配置下发、线卡插拔、参数修改 |
+| **机制** | SubscriberStateTable:PSUBSCRIBE `__keyspace@4__:<TABLE>\|*` + HGETALL 回读整行 |
+| **表清单** | LINECARD(linecardmgrd 消费);AMPLIFIER/ATTENUATOR/APS/APS_PORT/OSC/OCM/OTDR/OCH/OTN/ETHERNET/LOGICAL_CHANNEL/PHYSICAL_CHANNEL/ASSIGNMENT/INTERFACE/LLDP(configsyncd 消费) |
+| **前提条件** | · Redis 已启动且 `notify-keyspace-events AKE` 已配置 · CONFIG_DB_INITIALIZED=1 |
+| **约束与限制** | · 每个 OTSS 实例只消费本命名空间的 CONFIG_DB · LINECARD 表的 power-admin-state 必须为 POWER_ENABLED 才会被 linecardmgrd 处理(否则保留重试) · OTN 表当前无 YANG 模型,字段正确性依赖 OTAI 执行时校验 |
+
+### 3.2 输入接口:APPL_DB(消费)
+
+| 属性 | 说明 |
+|---|---|
+| **作用** | 接收 configsyncd/linecardmgrd 同步到 APPL_DB 的事件 |
+| **应用场景** | 模块配置翻译、线卡创建 |
+| **机制** | ConsumerStateTable:订阅 `<TABLE>_CHANNEL@0`,收到 'G' 后从队列 pop 工作项 |
+| **表清单** | APP_LINECARD(linecardorch);APP_AMPLIFIER(oaorch);APP_ATTENUATOR(attenuatororch);APP_APS(apsorch)… 每种对象对应一个 orch |
+| **前提条件** | · configsyncd 已写入至少一次 · FSM 状态为 READY 或 WORK |
+| **约束与限制** | · NOT_READY 状态下事件被缓存(m_toSync)不处理 · WORK 状态下才执行 set 操作 · 无法翻译的字段被跳过并记日志(不报错) |
+
+### 3.3 输出接口:APPL_DB(生产)
+
+| 属性 | 说明 |
+|---|---|
+| **作用** | 将 CONFIG_DB 数据同步到 APPL_DB 供 orchagent 消费 |
+| **应用场景** | linecardmgrd 转发线卡配置;configsyncd 批量/增量同步 |
+| **机制** | ProducerStateTable:单 Lua 脚本原子执行 HSET + LPUSH + PUBLISH 'G' |
+| **生产者** | linecardmgrd → APP_LINECARD;configsyncd → APP_*(15 种) |
+| **约束与限制** | · 写入键格式 `APP_<TABLE>:<KEY>` · object-count 字段由 configsyncd 延迟注入(等待 APP_LINECARD 出现) · HSET/LPUSH/PUBLISH 三动作原子(Lua 脚本保证) |
+
+### 3.4 输出接口:ASIC_DB(OTAI 操作)
+
+| 属性 | 说明 |
+|---|---|
+| **作用** | 将 OTAI API 调用序列化到 ASIC_DB,由 syncd-ot 消费执行 |
+| **应用场景** | 创建线卡对象、修改模块属性、删除对象 |
+| **机制** | otai_redis 适配层:OTAI C API → Redis 命令(LPUSH 到 ASIC_DB 队列) |
+| **操作类型** | create(创建对象)、set_attribute(修改属性)、remove(删除对象)、get_attribute(查询) |
+| **前提条件** | · syncd-ot 容器已启动 · FSM 状态为 WORK(set)/ READY(create) |
+| **约束与限制** | · 操作异步执行,结果经通知/应答频道返回 · vendor OTAI 库的属性支持范围决定实际能力 |
+
+### 3.5 输出接口:OTAI 应答频道
+
+| 属性 | 说明 |
+|---|---|
+| **作用** | 将 OTAI 操作的执行结果发布到应答频道,供 CLI 确认 |
+| **应用场景** | CLI 同步配置(等应答或超时回滚) |
+| **机制** | NotificationProducer:PUBLISH 到 `<field>-<operation-id>` 频道 |
+| **消息格式** | 成功:`"OK"`;失败:`"Failed,<error_code>,<message>"` |
+| **约束与限制** | · 应答有 120 秒超时(CONFIG_TIMEOUT) · 超时后 CLI 自动回滚(old_value 恢复) · 应答频道与写连接同库(CLI 侧) |
+
+### 3.6 输入接口:OTAI 通知频道
+
+| 属性 | 说明 |
+|---|---|
+| **作用** | 接收 syncd-ot 转发的硬件通知(状态变更、告警、PM 数据) |
+| **应用场景** | 运行时状态上报、告警上报、频谱扫描结果、OTDR 测量结果 |
+| **机制** | NotificationConsumer:专用通知队列 + 'G' 唤醒 |
+| **通知类型** | LINECARD_STATE_CHANGE、LINECARD_ALARM、OCM_SPECTRUM_POWER、OTDR_RESULT |
+| **前提条件** | · 回调函数在 OTAI create 时注册 · syncd-ot 已建立通知通道 |
+| **约束与限制** | · 通知为"尽力而为"(丢失不重传) · 通知处理在 orchagent 单线程事件循环中执行(长处理会阻塞后续事件) |
+
+## 4. 可测试性
+
+| 测试类型 | 方法 | 工具/命令 |
+|---|---|---|
+| **单元测试** | · orchagent 各 orch 类可独立编译测试(依赖 mock OTAI)· FSM 状态转移可状态注入测试 | C++ 单测框架 |
+| **数据库级验证** | · redis-cli MONITOR 实时观察各库交互 · HGETALL 检查表内容 | `sudo sonic-db-cli -n asic0 CONFIG_DB MONITOR` |
+| **链路追踪** | · syslog 中 SWSS_LOG_NOTICE 全链路日志 · 每跳有唯一标识(key/operation-id) | `grep -iE "linecard\|orchagent" /var/log/syslog` |
+| **端到端验证** | · `config slot N type X` → 等待 `show slot N info` 显示 ACTIVE · 操作成功/超时由 CLI 应答确认 | CLI 命令 |
+| **状态检查** | · FSM 状态可通过 STATE_DB oper-status 推断 · object-count 注入日志确认就绪屏障 | `show slot N info` |
+| **回归验证** | · `config slot N type NONE` 清理后重新配置 · 冷启动后从本地 CONFIG_DB 恢复 | 重启容器/槽位 |
+| **故障注入** | · 停 syncd-ot → OTAI 调用超时 → 验证错误处理 · 停 database → 验证重连 | `systemctl stop syncd-ot@N` |
+
+关键验证点(与设计对应):
+- 保留重试:写 CONFIG_DB 后不写电源状态,观察 linecardmgrd 周期性重试日志
+- FSM 门控:NOT_READY 期间下发模块配置,确认不执行、不报错
+- object-count:P230C 配置后 syslog 应出现 `Set object-count, key=LINECARD-1-N, count=10`
+- 应答回滚:注入无效属性值,确认 CLI 报错且 CONFIG_DB 恢复旧值
+
+## 5. 内存 & Flash 资源开销评估
+
+### 5.1 容器镜像(Flash / 磁盘)
+
+| 组件 | 预估大小 |
+|---|---|
+| OTSS 容器基础镜像(Debian bullseye/bookworm) | ~200 MB |
+| orchagent 二进制 + 共享库(libswsscommon, libotai) | ~20 MB |
+| linecardmgrd + configsyncd 二进制 | ~5 MB |
+| **OTSS 容器合计** | **~225 MB** |
+
+### 5.2 运行时内存(RAM)
+
+| 组件 | 预估内存 |
+|---|---|
+| orchagent 进程(含 15+ orch 实例、OTAI 对象缓存) | 50~150 MB(视线卡复杂度) |
+| linecardmgrd 进程 | 10~20 MB |
+| configsyncd 进程 | 15~30 MB |
+| Redis 连接(5 个数据库 × 3 进程 = 15 条连接) | ~5 MB(共享连接池可减半) |
+| supervisord + rsyslogd | ~10 MB |
+| **OTSS 容器合计** | **~100~220 MB / 槽位** |
+
+### 5.3 多槽位总开销
+
+| 槽位数 | OTSS 总内存(仅 OTSS 容器) | 说明 |
+|---|---|---|
+| 4 槽(当前 ot-vs) | ~400~880 MB | 4 个 OTSS 容器 |
+| 13 槽(最大配置) | ~1.3~2.9 GB | 需评估单板内存是否充足 |
+
+> 注:以上不含 syncd-ot、database 容器的开销。典型 4 槽配置整机建议 ≥4GB RAM。
+
+## 6. 规格 & 约束
+
+### 6.1 功能规格
+
+| 项目 | 规格 |
+|---|---|
+| 支持对象类型 | 24 种 OTAI 对象(LINECARD, PORT, TRANSCEIVER, AMPLIFIER, ATTENUATOR, APS, APS_PORT, OSC, OCM, OTDR, OCH, OTN, ETHERNET, LOGICAL_CHANNEL, PHYSICAL_CHANNEL, ASSIGNMENT, INTERFACE, LLDP, MEDIA_CHANNEL, WSS, OA…) |
+| 支持属性数 | ~400 个可配置属性(来自 OTAI 元数据) |
+| 部署粒度 | 每槽位(ASIC 命名空间)一个 OTSS 容器实例 |
+| 内部进程数 | 3(orchagent + linecardmgrd + configsyncd)+ supervisord + rsyslogd |
+
+### 6.2 性能约束
+
+| 项目 | 约束值 | 说明 |
+|---|---|---|
+| 配置下发到硬件生效延迟 | < 5 秒(典型) | 含 CONFIG_DB 写入 → OTAI 执行 → 应答 |
+| CLI 同步等待超时 | 120 秒 | CONFIG_TIMEOUT 常量 |
+| keyspace 通知延迟 | < 100 毫秒 | Redis 内部机制 |
+| FSM 状态转移延迟 | < 5 秒(典型) | 依赖 syncd-ot 创建 OTAI 对象 |
+| 并发配置操作 | 同表串行(队列保证) | 不同表可并行 |
+
+### 6.3 可靠性约束
+
+| 项目 | 约束 | 说明 |
+|---|---|---|
+| 线卡上电时序 | linecardmgrd 依赖 STATE_DB power-admin-state=POWER_ENABLED | CLI 写入后才处理(重试机制) |
+| OTSS 重启恢复 | 冷启动:从本地 CONFIG_DB 全量恢复(m_toSync 补读) | 无需主控重推配置 |
+| FSM 乱序保护 | NOT_READY 状态下缓存事件,不执行 | 防止线卡未就绪时误配模块 |
+| 应答丢失 | CLI 超时回滚(old_value 恢复) | 但硬件可能已生效(取决于 OTAI 实现) |
+| 容器崩溃 | supervisord 自动重启(5 秒) | systemd Restart=always |
+| 数据库断连 | DBConnector 重连机制 | Redis 连接断开后自动恢复 |
+
+### 6.4 部署约束
+
+| 项目 | 约束 |
+|---|---|
+| 命名空间 | 必须部署在对应 ASIC 命名空间内(有独立的 Redis 实例) |
+| FEATURE 表 | `otss` 条目必须为 `state=enabled, has_per_asic_scope=True` |
+| 服务依赖 | Requires database@N、syncd-ot@N(After 保证顺序) |
+| Docker 镜像 | docker-orchagent-ot:latest,由 slave.mk 构建打包 |
+
+### 6.5 与其他模块的接口约束
+
+| 对端模块 | 接口约束 |
+|---|---|
+| **syncd-ot** | 必须先于 OTSS 的 FSM 进入 WORK 状态启动;OTAI 通知通道由 syncd-ot 创建 |
+| **database** | 必须先启动(OTSS 的全部 DB 依赖);notify-keyspace-events=AKE 必须配置 |
+| **CLI(主控)** | CONFIG_DB 写入触发 OTSS;应答频道在 120 秒内有效 |
+| **标准 swss** | 互斥:ot- 平台上 swss 被 FEATURE 表禁用,由 OTSS 完全替代 |
+| **PMON** | 独立:OTSS 不依赖 PMON;PMON 不消费 OTSS 的数据 |

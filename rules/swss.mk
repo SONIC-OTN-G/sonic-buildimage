@@ -23,3 +23,4 @@ $(eval $(call add_derived_package,$(SWSS),$(SWSS_DBG)))
 #
 DBG_SRC_ARCHIVE += sonic-swss
 
+$(SWSS)_DEB_BUILD_OPTIONS = nocheck

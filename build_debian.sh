@@ -621,6 +621,14 @@ if [[ $RFS_SPLIT_LAST_STAGE == y ]]; then
     sudo rm -rf $FILESYSTEM_ROOT
     sudo unsquashfs -d $FILESYSTEM_ROOT $TARGET_PATH/$RFS_SQUASHFS_NAME
 
+    ## Refresh DNS configuration for chroot apt operations. The rootfs carries
+    ## a stale resolv.conf baked in during the first stage; its nameserver may
+    ## no longer be reachable if the build host network changed in between.
+    ## /etc/resolv.conf is a symlink to /run/resolvconf/resolv.conf, so this
+    ## copy writes through it and keeps the image's runtime symlink intact.
+    sudo mkdir -p $FILESYSTEM_ROOT/run/resolvconf
+    sudo cp /etc/resolv.conf $FILESYSTEM_ROOT/etc/resolv.conf
+
     ## make / as a mountpoint in chroot env, needed by dockerd
     pushd $FILESYSTEM_ROOT
     sudo mount --bind . .

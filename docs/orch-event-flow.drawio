@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" agent="drawio-skill" version="21.0.0" type="device">
+  <diagram name="Orch Event Flow" id="orch-event-flow">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1"
+                  connect="1" arrows="1" fold="1" page="1" pageScale="1"
+                  pageWidth="1400" pageHeight="1150" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ===== 框架(loop 含 alt,先画底层) ===== -->
+        <mxCell id="frame-loop" value="loop 遍历待处理队列"
+                style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;fontSize=13;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="480" y="530" width="850" height="500" as="geometry" />
+        </mxCell>
+        <mxCell id="frame-alt" value="alt 条件判断"
+                style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;fontSize=13;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="480" y="680" width="850" height="310" as="geometry" />
+        </mxCell>
+
+        <!-- ===== 注释与守卫文本 ===== -->
+        <mxCell id="note-enqueue" value="放入待处理队列"
+                style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;align=center;"
+                vertex="1" parent="1">
+          <mxGeometry x="770" y="390" width="180" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="label-self-check" value="检查前置条件"
+                style="text;html=1;align=center;fontSize=13;whiteSpace=wrap;"
+                vertex="1" parent="1">
+          <mxGeometry x="1210" y="575" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="guard-yes" value="[条件满足]"
+                style="text;html=1;align=left;fontSize=13;fontStyle=2;whiteSpace=wrap;"
+                vertex="1" parent="1">
+          <mxGeometry x="495" y="720" width="100" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="note-dequeue" value="条目出队"
+                style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;align=center;"
+                vertex="1" parent="1">
+          <mxGeometry x="1140" y="810" width="160" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="guard-no" value="[条件不满足]"
+                style="text;html=1;align=left;fontSize=13;fontStyle=2;whiteSpace=wrap;"
+                vertex="1" parent="1">
+          <mxGeometry x="495" y="888" width="110" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="note-retry" value="条目保留在队列中&#xa;等待后续重试"
+                style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;align=center;"
+                vertex="1" parent="1">
+          <mxGeometry x="1115" y="930" width="210" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ===== 参与者 ===== -->
+        <mxCell id="participant-src" value="数据生产者"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="55" y="60" width="170" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="participant-rds" value="redis 数据库"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="415" y="60" width="170" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="participant-con" value="数据消费者"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="775" y="60" width="170" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="participant-orch" value="Orch 子类&#xa;(业务逻辑)"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="1135" y="60" width="170" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ===== 生命线(虚线竖线) ===== -->
+        <mxCell id="lifeline-src" style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="140" y="110" as="sourcePoint" />
+            <mxPoint x="140" y="1060" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lifeline-rds" style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="500" y="110" as="sourcePoint" />
+            <mxPoint x="500" y="1060" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lifeline-con" style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="860" y="110" as="sourcePoint" />
+            <mxPoint x="860" y="1060" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lifeline-orch" style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1220" y="110" as="sourcePoint" />
+            <mxPoint x="1220" y="1060" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ===== alt 分支分隔线 ===== -->
+        <mxCell id="alt-divider" style="endArrow=none;dashed=1;html=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="495" y="875" as="sourcePoint" />
+            <mxPoint x="1320" y="875" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ===== 消息 ===== -->
+        <mxCell id="msg-write" value="写入数据"
+                style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;fontSize=13;strokeWidth=2;labelBackgroundColor=#ffffff;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="140" y="170" as="sourcePoint" />
+            <mxPoint x="500" y="170" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-notify" value="推送变更通知"
+                style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;fontSize=13;strokeWidth=2;labelBackgroundColor=#ffffff;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="500" y="230" as="sourcePoint" />
+            <mxPoint x="860" y="230" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-read" value="读取数据"
+                style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;fontSize=13;strokeWidth=2;labelBackgroundColor=#ffffff;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="860" y="295" as="sourcePoint" />
+            <mxPoint x="500" y="295" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-reply" value="返回 key + 字段值"
+                style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;fontSize=13;strokeWidth=2;labelBackgroundColor=#ffffff;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="500" y="355" as="sourcePoint" />
+            <mxPoint x="860" y="355" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-trigger" value="触发业务处理"
+                style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;fontSize=13;strokeWidth=2;labelBackgroundColor=#ffffff;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="860" y="475" as="sourcePoint" />
+            <mxPoint x="1220" y="475" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-self-check" value=""
+                style="html=1;endArrow=block;endFill=1;fontSize=13;strokeWidth=2;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1220" y="600" as="sourcePoint" />
+            <mxPoint x="1220" y="645" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1300" y="600" />
+              <mxPoint x="1300" y="645" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-action" value="执行动作&#xa;(写下游数据库 / 调用硬件接口)"
+                style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;fontSize=13;strokeWidth=2;labelBackgroundColor=#ffffff;"
+                edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1220" y="770" as="sourcePoint" />
+            <mxPoint x="500" y="770" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
