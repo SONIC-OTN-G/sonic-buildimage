@@ -326,6 +326,10 @@ ifeq ($(CONFIGURED_PLATFORM),$(filter $(CONFIGURED_PLATFORM),vs ot-vs))
 export BUILD_MULTIASIC_KVM
 endif
 
+ifeq ($(MULTIARCH_QEMU_ENVIRON),y)
+DEB_BUILD_OPTIONS_GENERIC += nocheck
+endif
+
 ifeq ($(CROSS_BUILD_ENVIRON),y)
 DEB_BUILD_OPTIONS_GENERIC += nocheck
 export $(dpkg-architecture -a$(CONFIGURED_ARCH))

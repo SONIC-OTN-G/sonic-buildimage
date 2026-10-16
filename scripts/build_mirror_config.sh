@@ -29,8 +29,8 @@ if [ "$DISTRIBUTION" == "buster" ]; then
     DEFAULT_MIRROR_URLS=http://archive.debian.org/debian/
     DEFAULT_MIRROR_SECURITY_URLS=http://archive.debian.org/debian-security/
 elif [ "$DISTRIBUTION" == "bullseye" ]; then
-    DEFAULT_MIRROR_URLS=http://archive.debian.org/debian/
-    DEFAULT_MIRROR_SECURITY_URLS=http://deb.debian.org/debian-security/
+    DEFAULT_MIRROR_URLS=http://debian-archive.trafficmanager.net/debian/
+    DEFAULT_MIRROR_SECURITY_URLS=http://debian-archive.trafficmanager.net/debian-security/
 fi
 
 if [ "$MIRROR_SNAPSHOT" == y ]; then

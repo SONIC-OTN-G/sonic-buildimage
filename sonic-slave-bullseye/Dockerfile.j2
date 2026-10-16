@@ -81,10 +81,14 @@ RUN PATH=/python_virtualenv/env3/bin/:$PATH pip3 install --force-reinstall --no-
 {%- endif %}
 
 {%- if CONFIGURED_ARCH == "arm64" and MULTIARCH_QEMU_ENVIRON == "y" %}
-# multiarch/debian-debootstrap:arm64-bullseye is too old. It needs to install keys
-RUN apt-get update || apt-get install -y gnupg
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 0E98404D386FA1D9
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 6ED0E7B82643E131
+# multiarch/debian-debootstrap:arm64-bullseye lacks the Debian archive keyring:
+# apt cannot verify archive.debian.org, so neither apt-get update nor the gnupg
+# bootstrap install can succeed. Seed the keyring (extracted from the official
+# debian:bullseye image) before apt runs.
+COPY ["debian-archive-keyring.gpg", "/etc/apt/trusted.gpg.d/"]
+RUN apt-get update && apt-get install -y gnupg
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 0E98404D386FA1D9 || true
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 6ED0E7B82643E131 || true
 {%- endif %}
 
 RUN apt-get update && apt-get install -y eatmydata && eatmydata apt-get install -y \
@@ -674,8 +678,13 @@ RUN pip3 install m2crypto==0.36.0
 RUN pip3 install git+https://github.com/aristanetworks/swi-tools.git@bead66bf261770237f7dd21ace3774ba04a017e9
 
 {% if CONFIGURED_ARCH != "amd64" -%}
-# Install node.js for azure pipeline
-RUN curl -sL https://deb.nodesource.com/setup_14.x | bash -
+# Install node.js for azure pipeline.
+# The legacy nodesource setup_14.x script is broken by a server-side key
+# rotation: gpgkey/nodesource.gpg.key now serves a different (NSolid) key
+# while the node_14.x repo InRelease is still signed by the old key
+# 1655A0AB68576280, so the script's pinned-hash check fails and the repo
+# ends up untrusted. Fall back to nodejs from the bullseye snapshot; the
+# azure pipeline agent is not used by local builds.
 RUN eatmydata apt-get install -y nodejs
 
 {%- if CROSS_BUILD_ENVIRON == "y" %}
