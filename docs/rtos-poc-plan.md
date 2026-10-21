@@ -6,6 +6,7 @@
 > 前置阅读: `README.otn.md`（功能演示基准）、`docs/distributed-chassis-architecture.md`（部署形态演进）
 > 状态: 阶段 0 冒烟已完成（GO）；待归档：设备挂载表（`cat /proc/mounts`）与页大小
 > 配套文档: `docs/rtos-poc-requirements.md`（需求清单：REQ-01 PoC / REQ-02 容器化 / REQ-03 整机安装，按标题/描述/预算人力/输入/处理/输出格式）
+> 执行实录: `docs/rtos-poc-execution-record.md`（阶段 0–4 过程记录：构建障碍编年、三轮排障、验证矩阵）
 
 ---
 
