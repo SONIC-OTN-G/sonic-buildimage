@@ -84,8 +84,13 @@ kvm_log=$(mktemp)
 trap on_exit EXIT
 trap on_error ERR
 
+KVM_ACCEL=""
+if [ -w /dev/kvm ]; then
+    echo "KVM acceleration available"
+    KVM_ACCEL="-enable-kvm"
+fi
+
 echo "Installing SONiC"
-exit 0
 /usr/bin/kvm -m $MEM \
     -name "onie" \
     -boot "order=cd,once=d" -cdrom "$ONIE_RECOVERY_ISO" \
@@ -95,7 +100,7 @@ exit 0
     -vga std \
     -drive file=$DISK,media=disk,if=virtio,index=0 \
     -drive file=$INSTALLER_DISK,if=virtio,index=1 \
-    -serial telnet:127.0.0.1:$KVM_PORT,server > $kvm_log 2>&1 &
+    -serial telnet:127.0.0.1:$KVM_PORT,server $KVM_ACCEL > $kvm_log 2>&1 &
 
 kvm_pid=$!
 
@@ -123,7 +128,7 @@ echo "Booting up SONiC"
     -vga std \
     -snapshot \
     -drive file=$DISK,media=disk,if=virtio,index=0 \
-    -serial telnet:127.0.0.1:$KVM_PORT,server > $kvm_log 2>&1 &
+    -serial telnet:127.0.0.1:$KVM_PORT,server $KVM_ACCEL > $kvm_log 2>&1 &
 
 kvm_pid=$!
 

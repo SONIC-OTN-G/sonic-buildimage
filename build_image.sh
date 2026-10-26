@@ -40,7 +40,10 @@ generate_kvm_image()
          RECOVERY_ISO=$onie_recovery_kvm_6asic_image
     else 
          KVM_IMAGE=$OUTPUT_KVM_IMAGE
-         RECOVERY_ISO=$onie_recovery_image
+         # Use the 4-asic ONIE recovery: its machine (x86_64-ot_kvm_x86_64_4_asic-r0)
+         # is listed in the installer's platforms_asic whitelist for ot-vs images,
+         # so the install proceeds non-interactively (same result as the blog).
+         RECOVERY_ISO=$onie_recovery_kvm_4asic_image
          NUM_ASIC=1
     fi
 
