@@ -9,14 +9,14 @@ FROM --platform=linux/arm64 {{ prefix }}debian:bookworm
 COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin
 {%- elif CONFIGURED_ARCH == "armhf" and CROSS_BUILD_ENVIRON == "y" %}
 FROM {{ prefix }}multiarch/qemu-user-static:x86_64-arm-7.2.0-1 as qemu
-FROM {{ prefix }}debian:bookworm
+FROM {{ prefix }}amd64/debian:bookworm
 COPY --from=qemu /usr/bin/qemu-arm-static /usr/bin
 {%- elif CONFIGURED_ARCH == "arm64" and CROSS_BUILD_ENVIRON == "y" %}
 FROM {{ prefix }}multiarch/qemu-user-static:x86_64-aarch64-7.2.0-1 as qemu
-FROM {{ prefix }}debian:bookworm
+FROM {{ prefix }}amd64/debian:bookworm
 COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin
 {%- else -%}
-FROM {{ prefix }}debian:bookworm
+FROM {{ prefix }}amd64/debian:bookworm
 {%- endif %}
 
 MAINTAINER gulv@microsoft.com

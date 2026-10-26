@@ -8,14 +8,14 @@ FROM {{ prefix }}multiarch/qemu-user-static:x86_64-aarch64 as qemu
 FROM {{ prefix }}multiarch/debian-debootstrap:arm64-buster
 {%- elif CONFIGURED_ARCH == "armhf" and CROSS_BUILD_ENVIRON == "y" %}
 FROM {{ prefix }}multiarch/qemu-user-static:x86_64-arm as qemu
-FROM {{ prefix }}debian:buster
+FROM {{ prefix }}amd64/debian:buster
 COPY --from=qemu /usr/bin/qemu-arm-static /usr/bin
 {%- elif CONFIGURED_ARCH == "arm64" and CROSS_BUILD_ENVIRON == "y" %}
 FROM {{ prefix }}multiarch/qemu-user-static:x86_64-aarch64 as qemu
-FROM {{ prefix }}debian:buster
+FROM {{ prefix }}amd64/debian:buster
 COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin
 {%- else -%}
-FROM {{ prefix }}debian:buster
+FROM {{ prefix }}amd64/debian:buster
 {%- endif %}
 
 MAINTAINER gulv@microsoft.com

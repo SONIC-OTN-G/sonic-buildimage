@@ -9,14 +9,14 @@ FROM {{ prefix }}multiarch/debian-debootstrap:arm64-bullseye
 COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin
 {%- elif CONFIGURED_ARCH == "armhf" and CROSS_BUILD_ENVIRON == "y" %}
 FROM {{ prefix }}multiarch/qemu-user-static:x86_64-arm-6.1.0-8 as qemu
-FROM {{ prefix }}debian:bullseye
+FROM {{ prefix }}amd64/debian:bullseye@sha256:da5c2dc5e036efbfa25b4a0abfb41e497a44c3e9ab630e8ef6699600790511e7
 COPY --from=qemu /usr/bin/qemu-arm-static /usr/bin
 {%- elif CONFIGURED_ARCH == "arm64" and CROSS_BUILD_ENVIRON == "y" %}
 FROM {{ prefix }}multiarch/qemu-user-static:x86_64-aarch64-6.1.0-8 as qemu
-FROM {{ prefix }}debian:bullseye
+FROM {{ prefix }}amd64/debian:bullseye@sha256:da5c2dc5e036efbfa25b4a0abfb41e497a44c3e9ab630e8ef6699600790511e7
 COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin
 {%- else -%}
-FROM {{ prefix }}debian:bullseye
+FROM {{ prefix }}amd64/debian:bullseye@sha256:da5c2dc5e036efbfa25b4a0abfb41e497a44c3e9ab630e8ef6699600790511e7
 {%- endif %}
 
 MAINTAINER gulv@microsoft.com
@@ -26,8 +26,12 @@ COPY ["apt-retries-count", "/etc/apt/apt.conf.d"]
 
 {%- if CROSS_BUILD_ENVIRON != "y" %}
 COPY ["sources.list.{{ CONFIGURED_ARCH }}", "/etc/apt/sources.list"]
+# Pin kernel tracing libs from bullseye-backports: the EOL bullseye main
+# suite has older versions than the linux source package requires
+COPY ["backports-pin", "/etc/apt/preferences.d/backports-pin"]
 {%- else %}
 COPY ["sources.list.amd64", "/etc/apt/sources.list"]
+
 {%- if CONFIGURED_ARCH == "armhf" %}
 ARG arch=armhf
 ARG gcc_arch=arm-linux-gnueabihf

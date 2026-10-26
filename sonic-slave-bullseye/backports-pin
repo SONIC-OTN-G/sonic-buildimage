@@ -1,0 +1,3 @@
+Package: libtracefs* libtraceevent*
+Pin: release n=bullseye-backports
+Pin-Priority: 600

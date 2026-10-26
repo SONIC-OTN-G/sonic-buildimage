@@ -29,10 +29,13 @@ if [ "$DISTRIBUTION" == "buster" ]; then
     DEFAULT_MIRROR_URLS=http://archive.debian.org/debian/
     DEFAULT_MIRROR_SECURITY_URLS=http://archive.debian.org/debian-security/
 elif [ "$DISTRIBUTION" == "bullseye" ]; then
-    DEFAULT_MIRROR_URLS=http://archive.debian.org/debian/
-    DEFAULT_MIRROR_SECURITY_URLS=http://deb.debian.org/debian-security/
+    # bullseye is EOL (Aug 2026): deb.debian.org no longer serves it and
+    # archive.debian.org's merged state has intra-suite version mismatches
+    # (e.g. libssl1.1 deb11u2 vs libssl-dev deb11u1). Pin a point-in-time
+    # snapshot from the era this branch was built instead.
+    DEFAULT_MIRROR_URLS=http://snapshot.debian.org/archive/debian/20260601T000000Z/
+    DEFAULT_MIRROR_SECURITY_URLS=http://snapshot.debian.org/archive/debian-security/20260601T000000Z/
 fi
-
 if [ "$MIRROR_SNAPSHOT" == y ]; then
     if [ -f "$MIRROR_VERSION_FILE" ]; then
         DEBIAN_TIMESTAMP=$(grep "^debian==" $MIRROR_VERSION_FILE | tail -n 1 | sed 's/.*==//')
@@ -62,6 +65,23 @@ TEMPLATE=files/apt/sources.list.j2
 [ -f $CONFIG_PATH/sources.list.$ARCHITECTURE.j2 ] && TEMPLATE=$CONFIG_PATH/sources.list.$ARCHITECTURE.j2
 
 MIRROR_URLS=$MIRROR_URLS MIRROR_SECURITY_URLS=$MIRROR_SECURITY_URLS j2 $TEMPLATE | sed '/^$/N;/^\n$/D' > $CONFIG_PATH/sources.list.$ARCHITECTURE
+# Drop the security repo entry when no security mirror is set (e.g. EOL bullseye)
+if [ -z "$MIRROR_SECURITY_URLS" ]; then
+    # Use only the main suite: -updates/-backports on the archive are no longer
+    # mutually consistent with the base suite and break apt dependency resolution
+    sed -i '/-security\|-updates\|-backports/d' $CONFIG_PATH/sources.list.$ARCHITECTURE
+fi
+# bullseye EOL: -updates/-backports were retired upstream and are absent from
+# the pinned snapshot; keep only main + bullseye-security
+if [ "$DISTRIBUTION" == "bullseye" ] && [ "$MIRROR_SNAPSHOT" != y ]; then
+    # -updates was retired upstream and -backports is absent from the 2026
+    # snapshot. Keep main + security, then append backports from an older
+    # snapshot where it still exists (priority 100, so it is only used
+    # explicitly, e.g. apt-get -t bullseye-backports install rsyslog).
+    sed -i '/bullseye-updates\|bullseye-backports/d' $CONFIG_PATH/sources.list.$ARCHITECTURE
+    echo "deb [arch=$ARCHITECTURE] http://snapshot.debian.org/archive/debian/20241001T000000Z/ bullseye-backports main contrib non-free" >> $CONFIG_PATH/sources.list.$ARCHITECTURE
+    echo "deb-src [arch=$ARCHITECTURE] http://snapshot.debian.org/archive/debian/20241001T000000Z/ bullseye-backports main contrib non-free" >> $CONFIG_PATH/sources.list.$ARCHITECTURE
+fi
 if [ "$MIRROR_SNAPSHOT" == y ]; then
     # Set the snapshot mirror, and add the SET_REPR_MIRRORS flag
     sed -i -e "/^#*deb.*packages.trafficmanager.net/! s/^#*deb/#&/" -e "\$a#SET_REPR_MIRRORS" $CONFIG_PATH/sources.list.$ARCHITECTURE
