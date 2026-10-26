@@ -23,3 +23,5 @@ $(eval $(call add_derived_package,$(SWSS),$(SWSS_DBG)))
 #
 DBG_SRC_ARCHIVE += sonic-swss
 
+# Skip unit tests: mock_tests fail in the bookworm build container (D16)
+$(SWSS)_DEB_BUILD_OPTIONS = nocheck
