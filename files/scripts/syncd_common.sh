@@ -61,7 +61,9 @@ function check_fast_boot()
 function wait_for_database_service()
 {
     # Wait for redis server start before database clean
-    until [[ $($SONIC_DB_CLI PING | grep -c PONG) -gt 0 ]]; do
+    # NOTE: `sonic-db-cli -n <ns> PING` is broken on this branch (passes DB name
+    # as port when multiple redis instances exist). Use a CONFIG_DB op instead.
+    until [[ ! -z $($SONIC_DB_CLI CONFIG_DB GET "CONFIG_DB_INITIALIZED") ]]; do
       sleep 1;
     done
 

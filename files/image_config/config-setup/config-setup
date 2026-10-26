@@ -283,6 +283,7 @@ do_otn_config_initialization()
     need_reload_config=false
 
     cfg_file_json_list=''
+    first_cfg_file=true
     for cfg_file in $(get_config_db_file_list); do
         cfg_file_json=${CONFIG_DB_PATH}${cfg_file}
         if [ ! -e  $cfg_file_json ]; then
@@ -293,17 +294,30 @@ do_otn_config_initialization()
             else
                 # For otn device, usr can plugin any linecard, system will generate linecard configuration 
                 # when user start to provisioning a linecard. Generate an empty configuration file by default.
-                echo "{}" > ${cfg_file_json}
+                # NOTE: newer sonic-utilities extracts HWSKU from every per-asic
+                # config file during reload; empty "{}" files break it.
+                # ot-vs VS has a single hwsku; the upgraded config reload CLI
+                # extracts HWSKU from every per-asic config file, so "{}" breaks it
+                echo '{"DEVICE_METADATA":{"localhost":{"hwsku":"alibaba_4_asic_vs","platform":"'"$PLATFORM"'"}}}' > ${cfg_file_json}
             fi
         fi
-        cfg_file_json_list+=','$cfg_file_json
+        if [ x"$first_cfg_file" == x"true" ]; then
+            first_cfg_file=false
+            cfg_file_json_list+=$cfg_file_json
+        else
+            cfg_file_json_list+=','${cfg_file_json}
+        fi
     done
 
     if [ x"$need_reload_config" == x"true" ]; then
-        config reload -y -n $(cfg_file_json_list)
+        config reload -y -n ${cfg_file_json_list}
     fi
 
     sonic-db-cli CONFIG_DB SET "CONFIG_DB_INITIALIZED" "1"
+    # OTN: set per-asic flags too (config reload -n skips service restarts)
+    for asic_num in $(seq 0 $((NUM_ASIC-1))); do
+        sonic-db-cli -n asic$asic_num CONFIG_DB SET "CONFIG_DB_INITIALIZED" "1"
+    done
 }
 
 # Restore config-setup post migration hooks from a backup copy
