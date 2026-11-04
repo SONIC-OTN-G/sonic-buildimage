@@ -61,4 +61,19 @@ autorestart=false
 stdout_syslog=true
 stderr_syslog=true
 dependent_startup=true
+dependent_startup_wait_for=start:exited
+
+[program:alarmsync]
+command=python3 /usr/local/bin/alarmsync.py
+priority=5
+autostart=false
+autorestart=true
+stdout_logfile=/tmp/alarmsync.log
+stdout_logfile_maxbytes=1MB
+redirect_stderr=true
+dependent_startup=true
+dependent_startup_wait_for=start:exited
+stdout_syslog=true
+stderr_syslog=true
+dependent_startup=true
 dependent_startup_wait_for=snmpd:running
