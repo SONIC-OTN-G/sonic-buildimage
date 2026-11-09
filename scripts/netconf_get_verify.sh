@@ -35,6 +35,7 @@ vm true || die "VM 不可達"
 vm "ps aux | grep -q '[n]etconfd'" || die "netconfd 沒在 VM host 跑(ssh VM 後: sudo /tmp/netconfd -port 830 &)"
 vm "sudo ss -tln | grep -q ':830 '" || die "VM :830 沒監聽"
 vm "redis-cli -n 6 ping" | grep -q PONG || die "redis db6 不可達"
+vm "redis-cli -n 1 --raw --scan --pattern 'ASIC_STATE:OTAI_OBJECT_TYPE_LINECARD:*' | head -1" | grep -q . || die "線卡物件不存在(記帳空):先跑 scripts/seed_linecard.sh"
 log "預檢通過"
 
 # ── 1) SSH 隧道(已開就複用)──────────────────────────────

@@ -36,6 +36,7 @@ trap cleanup EXIT
 vm true || die "VM 不可達"
 vm "sudo docker ps --format '{{.Names}}'" | grep -qx gnmi  || die "gnmi 容器沒在跑"
 vm "sudo docker ps --format '{{.Names}}'" | grep -qx syncd || die "syncd 容器沒在跑"
+vm "redis-cli -n 1 --raw --scan --pattern 'ASIC_STATE:OTAI_OBJECT_TYPE_LINECARD:*' | head -1" | grep -q . || die "線卡物件不存在(記帳空):先跑 scripts/seed_linecard.sh"
 log "預檢通過(gnmic=$GNMI_BIN)"
 
 # ── 1) SSH 隧道(已開就複用)──────────────────────────────

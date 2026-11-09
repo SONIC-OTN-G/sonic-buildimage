@@ -38,6 +38,7 @@ vm "ps aux | grep -q '[n]etconfd'" || die "netconfd 沒在跑(ssh VM 後: sudo /
 vm "sudo ss -tln | grep -q ':830 '" || die "VM :830 沒監聽"
 KS=$(vm "redis-cli CONFIG GET notify-keyspace-events" | tail -1)
 case "$KS" in *K*|*A*) log "redis keyspace 事件已開($KS)";; *) die "redis notify-keyspace-events 未開(=$KS)";; esac
+vm "redis-cli -n 1 --raw --scan --pattern 'ASIC_STATE:OTAI_OBJECT_TYPE_LINECARD:*' | head -1" | grep -q . || die "線卡物件不存在(記帳空):先跑 scripts/seed_linecard.sh"
 log "預檢通過"
 
 # ── 1) SSH 隧道(已開就複用)──────────────────────────────

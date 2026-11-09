@@ -28,6 +28,7 @@ vm true || die "VM 不可達"
 vm "sudo docker ps --format '{{.Names}} {{.Status}}' | grep -q '^snmp Up'" || die "snmp 容器沒在跑"
 vm "sudo docker exec snmp supervisorctl status alarmsync" | grep -q RUNNING || die "容器內 alarmsync 非 RUNNING"
 ss -ulnp 2>/dev/null | grep -q ":${TRAP_PORT} " || die "接收端 udp:${TRAP_PORT} 沒監聽(先起 snmptrapd)"
+vm "redis-cli -n 1 --raw --scan --pattern 'ASIC_STATE:OTAI_OBJECT_TYPE_LINECARD:*' | head -1" | grep -q . || die "線卡物件不存在(記帳空):先跑 scripts/seed_linecard.sh"
 vm "redis-cli CONFIG GET notify-keyspace-events" | tail -1 | grep -qE "K|A" || die "redis keyspace 事件未開"
 log "預檢通過(snmp 容器 + alarmsync RUNNING + 接收端 udp:${TRAP_PORT})"
 
