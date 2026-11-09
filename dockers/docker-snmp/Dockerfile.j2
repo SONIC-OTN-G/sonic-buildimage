@@ -46,7 +46,7 @@ RUN pip3 install --no-cache-dir \
         redis                               \
         smbus
 
-COPY ["files/alarmsync.py", "/usr/local/bin/alarmsync.py"]
+COPY ["alarmsync.py", "/usr/local/bin/alarmsync.py"]
 
 {% if docker_snmp_whls.strip() -%}
 # Copy locally-built Python wheel dependencies
