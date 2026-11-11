@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+if [ -z "${BASH_VERSION:-}" ]; then
+    echo "ERROR: 请用 bash 运行本脚本:./scripts/<脚本名> 或 bash scripts/<脚本名>(sh/dash 不支持 flock fd 与 pipefail)" >&2
+    exit 1
+fi
 # seed_linecard.sh — VM 冷啟後手工播種線卡物件(AGENTS.md 規則 5 步驟②③的自動化)
 #
 # 背景: redis 冷啟(db1/db6 清空)→ 線卡記帳蒸發 → syncd 永等 LINECARD key →
@@ -21,6 +25,13 @@ OP_FIELDS='["OTAI_LINECARD_ATTR_LINECARD_STATE_CHANGE_NOTIFY","0xdeadbeef","OTAI
 log() { echo "[seed] $*"; }
 die() { echo "[seed][ERROR] $*" >&2; exit 1; }
 vm() { $VM_SSH "$@" 2>/dev/null; }
+
+# 互斥锁:同一台 VM 的旋钮/账本/容器是共享状态,并发验证会互相踩踏
+# (2026-11-11 实证:两个 opencode 同时跑 D1,边沿互吞、账本互冲)
+LOCK=/tmp/opencode/.vm_test.lock
+exec 9>"$LOCK"
+flock -w 60 9 || die "另一个验证脚本正在运行(排队 60s 未取到锁)——稍后再试,或停掉另一个 opencode 的验证循环"
+
 
 # ── 0) 預檢 ──────────────────────────────────────────────
 vm true || die "VM 不可達"
