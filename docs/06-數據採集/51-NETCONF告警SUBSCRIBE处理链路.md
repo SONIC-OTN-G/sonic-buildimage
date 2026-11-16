@@ -65,7 +65,7 @@ case rpc.CreateSubscription != nil:
 
 syncd 写 CURALARM:hset(告警上报/同键去重静默)与 hdel(清除,INACTIVE→删表)。这就是事件的唯一来源——**netconfd 自己不产生告警**。
 
-**踩坑**:同键重复上报被 syncd 静默去重(doc 46 §2③)→ 不产生 hset → 不触发通知(与 gNMI 行为一致)。
+**踩坑**:同键重复上报被 syncd 静默去重(doc 46 §4③)→ 不产生 hset → 不触发通知(与 gNMI 行为一致)。
 
 ### ④ redis 事件发布 🟢(执行者:redis-server,配置已有)
 

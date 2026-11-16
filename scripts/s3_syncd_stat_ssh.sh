@@ -34,7 +34,8 @@ exec 9>"$LOCK"
 flock -w 60 9 || { echo "ERROR: 另一個驗證腳本正在運行(排隊 60s 未取到鎖)" >&2; exit 1; }
 
 # ssh 封裝:保留遠端 stdout/stderr,只濾掉 ssh 橫幅雜訊
-vm() { $VM_SSH "$@" 2>&1 | grep -vE "Warning: Permanently|Debian GNU/Linux"; }
+vm() { $VM_SSH "$@" 2>&1 | grep -vE "Warning: Permanently|Debian GNU/Linux|^$"; }
+run() { echo -e "  ${B}\$ $1${N}"; vm "$1" >/dev/null; }
 
 log() { echo "[s3ssh] $*"; }
 die() { echo "[s3ssh][ERROR] $*" >&2; exit 1; }
@@ -88,28 +89,28 @@ if [ -n "$LEDGER" ]; then
 else
   [ "$QLEN" = "0" ] || die "op 佇列非空(=${QLEN}),先 DEL ASIC_STATE_KEY_VALUE_OP_QUEUE 再跑(冷啟積壓的 notify 副本會害 syncd 崩)"
   # ASIC_DB(db1):LPUSH 線卡 create op——線卡記帳寫入由此起,syncd 消費後重建線卡物件
-  vm "redis-cli -n 1 LPUSH 'ASIC_STATE_KEY_VALUE_OP_QUEUE' 'OTAI_OBJECT_TYPE_LINECARD:oid:0x1000000000000' '[\"OTAI_LINECARD_ATTR_LINECARD_STATE_CHANGE_NOTIFY\",\"0xdeadbeef\",\"OTAI_LINECARD_ATTR_LINECARD_ALARM_NOTIFY\",\"0xdeadbeef\",\"OTAI_LINECARD_ATTR_LINECARD_OTDR_RESULT_NOTIFY\",\"0xdeadbeef\",\"OTAI_LINECARD_ATTR_LINECARD_OCM_SPECTRUM_POWER_NOTIFY\",\"0xdeadbeef\"]' Screate" >/dev/null
+  run "redis-cli -n 1 LPUSH 'ASIC_STATE_KEY_VALUE_OP_QUEUE' 'OTAI_OBJECT_TYPE_LINECARD:oid:0x1000000000000' '[\"OTAI_LINECARD_ATTR_LINECARD_STATE_CHANGE_NOTIFY\",\"0xdeadbeef\",\"OTAI_LINECARD_ATTR_LINECARD_ALARM_NOTIFY\",\"0xdeadbeef\",\"OTAI_LINECARD_ATTR_LINECARD_OTDR_RESULT_NOTIFY\",\"0xdeadbeef\",\"OTAI_LINECARD_ATTR_LINECARD_OCM_SPECTRUM_POWER_NOTIFY\",\"0xdeadbeef\"]' Screate" >/dev/null
   # ASIC_DB(db1):PUBLISH 敲鐘——喚醒 syncd 的 op 佇列消費者
-  vm "redis-cli -n 1 PUBLISH 'ASIC_STATE_CHANNEL@1' G" >/dev/null
+  run "redis-cli -n 1 PUBLISH 'ASIC_STATE_CHANNEL@1' G"
   echo "  (線卡 create 已下發;成功的硬指標是後面 db2 出 8 鍵,此處不設門檻)"; echo
 fi
 
 # 3. 給線卡起名(採集鍵名的來源)
 # COUNTERS_DB(db2):HSET NAME_MAP——oid→linecard1,採集輸出鍵名由此而來
-vm "redis-cli -n 2 HSET 'COUNTERS_LINECARD_NAME_MAP' 'oid:0x1000000000000' linecard1" >/dev/null
+run "redis-cli -n 2 HSET 'COUNTERS_LINECARD_NAME_MAP' 'oid:0x1000000000000' linecard1"
 echo "  (NAME_MAP 已寫)"; echo
 
 # 4. 開 GAUGE 採集組(組名含 1S_STAT_GAUGE 才會被採集器認;1 秒採樣)
 # FLEX_COUNTER_DB(db5):LPUSH 組行 enable(POLL_INTERVAL=1000ms)——採集器訂閱這張組表,一行一條採集線程
-vm "redis-cli -n 5 LPUSH 'FLEX_COUNTER_GROUP_TABLE_KEY_VALUE_OP_QUEUE' '1S_STAT_GAUGE' '[\"POLL_INTERVAL\",\"1000\",\"FLEX_COUNTER_STATUS\",\"enable\"]' SSET" >/dev/null
+run "redis-cli -n 5 LPUSH 'FLEX_COUNTER_GROUP_TABLE_KEY_VALUE_OP_QUEUE' '1S_STAT_GAUGE' '[\"POLL_INTERVAL\",\"1000\",\"FLEX_COUNTER_STATUS\",\"enable\"]' SSET"
 # FLEX_COUNTER_DB(db5):PUBLISH 敲鐘——喚醒採集器的組訂閱
-vm "redis-cli -n 5 PUBLISH 'FLEX_COUNTER_GROUP_TABLE_CHANNEL@5' G" >/dev/null
+run "redis-cli -n 5 PUBLISH 'FLEX_COUNTER_GROUP_TABLE_CHANNEL@5' G"
 echo "  (GAUGE 組已下發 enable)"; echo
 
 # 5. 指定采什麼(線卡的 4 項 stat)
 # FLEX_COUNTER_DB(db5):LPUSH counter 行——id_list 告訴採集線程採這 4 個 OTAI 統計 id
-vm "redis-cli -n 5 LPUSH 'FLEX_COUNTER_TABLE_KEY_VALUE_OP_QUEUE' '1S_STAT_GAUGE:oid:0x1000000000000' '[\"id_list\",\"OTAI_LINECARD_STAT_TEMPERATURE,OTAI_LINECARD_STAT_CPU_UTILIZATION,OTAI_LINECARD_STAT_MEMORY_AVAILABLE,OTAI_LINECARD_STAT_MEMORY_UTILIZED\"]' SSET" >/dev/null
-vm "redis-cli -n 5 PUBLISH 'FLEX_COUNTER_TABLE_CHANNEL@5' G" >/dev/null
+run "redis-cli -n 5 LPUSH 'FLEX_COUNTER_TABLE_KEY_VALUE_OP_QUEUE' '1S_STAT_GAUGE:oid:0x1000000000000' '[\"id_list\",\"OTAI_LINECARD_STAT_TEMPERATURE,OTAI_LINECARD_STAT_CPU_UTILIZATION,OTAI_LINECARD_STAT_MEMORY_AVAILABLE,OTAI_LINECARD_STAT_MEMORY_UTILIZED\"]' SSET"
+run "redis-cli -n 5 PUBLISH 'FLEX_COUNTER_TABLE_CHANNEL@5' G"
 echo "  (counter 行已下發;等採集器開工…)"; echo
 
 sleep 8
@@ -157,9 +158,9 @@ if [ -n "$LEDGER" ]; then
 else
   [ "$QLEN" = "0" ] || die "op 佇列非空(=${QLEN}),先 DEL ASIC_STATE_KEY_VALUE_OP_QUEUE 再跑"
   # ASIC_DB(db1):LPUSH 網卡 create op(冪等同款)
-  vm "redis-cli -n 1 LPUSH 'ASIC_STATE_KEY_VALUE_OP_QUEUE' 'OTAI_OBJECT_TYPE_ETHERNET:oid:0x6000000000000' '[]' Screate" >/dev/null
+  run "redis-cli -n 1 LPUSH 'ASIC_STATE_KEY_VALUE_OP_QUEUE' 'OTAI_OBJECT_TYPE_ETHERNET:oid:0x6000000000000' '[]' Screate"
   # ASIC_DB(db1):PUBLISH 敲鐘
-  vm "redis-cli -n 1 PUBLISH 'ASIC_STATE_CHANNEL@1' G" >/dev/null
+  run "redis-cli -n 1 PUBLISH 'ASIC_STATE_CHANNEL@1' G"
   echo "  (網卡 create 已下發;等 3 秒…)"; sleep 3; echo
 fi
 expect "網卡記帳落地" \
@@ -168,23 +169,23 @@ expect "網卡記帳落地" \
 
 # 10. 起名(狀態/計數鍵名的來源)
 # COUNTERS_DB(db2):HSET ETHERNET NAME_MAP——oid→eth1
-vm "redis-cli -n 2 HSET 'COUNTERS_ETHERNET_NAME_MAP' 'oid:0x6000000000000' eth1" >/dev/null
+run "redis-cli -n 2 HSET 'COUNTERS_ETHERNET_NAME_MAP' 'oid:0x6000000000000' eth1"
 echo "  (NAME_MAP 已寫:eth1)"; echo
 
 # 11. 開 STATUS 組(採屬性 → STATE_DB;STATE_DB 鍵用 | 分隔)
 # FLEX_COUNTER_DB(db5):LPUSH 組行+counter 行 enable——1S_STAT_STATUS 採 3 個屬性 id
-vm "redis-cli -n 5 LPUSH 'FLEX_COUNTER_GROUP_TABLE_KEY_VALUE_OP_QUEUE' '1S_STAT_STATUS' '[\"POLL_INTERVAL\",\"1000\",\"FLEX_COUNTER_STATUS\",\"enable\"]' SSET" >/dev/null
-vm "redis-cli -n 5 PUBLISH 'FLEX_COUNTER_GROUP_TABLE_CHANNEL@5' G" >/dev/null
-vm "redis-cli -n 5 LPUSH 'FLEX_COUNTER_TABLE_KEY_VALUE_OP_QUEUE' '1S_STAT_STATUS:oid:0x6000000000000' '[\"id_list\",\"OTAI_ETHERNET_ATTR_CLIENT_ALS,OTAI_ETHERNET_ATTR_ALS_DELAY,OTAI_ETHERNET_ATTR_MAINTENANCE\"]' SSET" >/dev/null
-vm "redis-cli -n 5 PUBLISH 'FLEX_COUNTER_TABLE_CHANNEL@5' G" >/dev/null
+run "redis-cli -n 5 LPUSH 'FLEX_COUNTER_GROUP_TABLE_KEY_VALUE_OP_QUEUE' '1S_STAT_STATUS' '[\"POLL_INTERVAL\",\"1000\",\"FLEX_COUNTER_STATUS\",\"enable\"]' SSET"
+run "redis-cli -n 5 PUBLISH 'FLEX_COUNTER_GROUP_TABLE_CHANNEL@5' G"
+run "redis-cli -n 5 LPUSH 'FLEX_COUNTER_TABLE_KEY_VALUE_OP_QUEUE' '1S_STAT_STATUS:oid:0x6000000000000' '[\"id_list\",\"OTAI_ETHERNET_ATTR_CLIENT_ALS,OTAI_ETHERNET_ATTR_ALS_DELAY,OTAI_ETHERNET_ATTR_MAINTENANCE\"]' SSET"
+run "redis-cli -n 5 PUBLISH 'FLEX_COUNTER_TABLE_CHANNEL@5' G"
 echo "  (STATUS 組已下發:CLIENT_ALS / ALS_DELAY / MAINTENANCE)"; echo
 
 # 12. 開 COUNTER 組(增量累加 → COUNTERS_DB;選 json 裡唯一非零值,指紋才看得見)
 # FLEX_COUNTER_DB(db5):LPUSH 組行+counter 行 enable——1S_STAT_COUNTER 採 IN_PCS_UNAVAILABLE_SECONDS
-vm "redis-cli -n 5 LPUSH 'FLEX_COUNTER_GROUP_TABLE_KEY_VALUE_OP_QUEUE' '1S_STAT_COUNTER' '[\"POLL_INTERVAL\",\"1000\",\"FLEX_COUNTER_STATUS\",\"enable\"]' SSET" >/dev/null
-vm "redis-cli -n 5 PUBLISH 'FLEX_COUNTER_GROUP_TABLE_CHANNEL@5' G" >/dev/null
-vm "redis-cli -n 5 LPUSH 'FLEX_COUNTER_TABLE_KEY_VALUE_OP_QUEUE' '1S_STAT_COUNTER:oid:0x6000000000000' '[\"id_list\",\"OTAI_ETHERNET_STAT_IN_PCS_UNAVAILABLE_SECONDS\"]' SSET" >/dev/null
-vm "redis-cli -n 5 PUBLISH 'FLEX_COUNTER_TABLE_CHANNEL@5' G" >/dev/null
+run "redis-cli -n 5 LPUSH 'FLEX_COUNTER_GROUP_TABLE_KEY_VALUE_OP_QUEUE' '1S_STAT_COUNTER' '[\"POLL_INTERVAL\",\"1000\",\"FLEX_COUNTER_STATUS\",\"enable\"]' SSET"
+run "redis-cli -n 5 PUBLISH 'FLEX_COUNTER_GROUP_TABLE_CHANNEL@5' G"
+run "redis-cli -n 5 LPUSH 'FLEX_COUNTER_TABLE_KEY_VALUE_OP_QUEUE' '1S_STAT_COUNTER:oid:0x6000000000000' '[\"id_list\",\"OTAI_ETHERNET_STAT_IN_PCS_UNAVAILABLE_SECONDS\"]' SSET"
+run "redis-cli -n 5 PUBLISH 'FLEX_COUNTER_TABLE_CHANNEL@5' G"
 echo "  (COUNTER 組已下發:IN_PCS_UNAVAILABLE_SECONDS(非零值,每拍 +10427))"; echo
 
 sleep 8
@@ -197,19 +198,26 @@ expect "STATUS:STATE_DB 屬性行落地(ETHERNET|eth1)" \
 
 # 14. COUNTER 指紋:累加值線性增長(每拍 +10427;跨窗界重置會假跌,重試一輪)
 # COUNTERS_DB(db2):連續兩拍 HGET 當前窗的 in-pcs-unavailable-seconds,驗增量累加
-echo -e "${B}── COUNTER:累加線性增長(每拍 +10427)${N}"
+echo -e "${B}── COUNTER:查閱兩次,驗累加證明${N}"
+echo "  \$ 查閱命令(單值):redis-cli -n 2 HGET 'ETHERNET:eth1:15_pm_current' in-pcs-unavailable-seconds"
 GROW=0
 for i in 1 2 3; do
   VA=$(vm "redis-cli -n 2 HGET 'ETHERNET:eth1:15_pm_current' in-pcs-unavailable-seconds")
+  echo "    第 1 次查閱:in-pcs-unavailable-seconds = ${VA:-<空>}"
+  out=$(vm "redis-cli --json -n 2 HGETALL 'ETHERNET:eth1:15_pm_current'")
+  echo "    $out"
   sleep 2
   VB=$(vm "redis-cli -n 2 HGET 'ETHERNET:eth1:15_pm_current' in-pcs-unavailable-seconds")
-  echo "    第 $i 輪:${VA:-<空>} → ${VB:-<空>}"
+  echo "    第 2 次查閱:in-pcs-unavailable-seconds = ${VB:-<空>}"
+  out=$(vm "redis-cli --json -n 2 HGETALL 'ETHERNET:eth1:15_pm_current'")
+  echo "    $out"
   if [ -n "$VB" ] && [ -n "$VA" ] && [ "$VB" -gt "$VA" ] 2>/dev/null; then
-    ok "累加值增長($VA → $VB)"; GROW=1; break
+    ok "累加值增長證明:${VA} → ${VB}(差 $((VB - VA)),每拍 +10427,採集管線活著)"; GROW=1; break
   fi
+  echo "    (未增長——跨窗界假跌兜底,再查一輪…)"
   sleep 1
 done
-[ "$GROW" = "1" ] || bad "累加值增長" "連續兩拍遞增(讀空/持平 = 機制沒跑,查 redis-cli -n 2 HGETALL 'ETHERNET:eth1:15_pm_current')"
+[ "$GROW" = "1" ] || bad "累加值增長證明" "兩次查閱遞增(讀空/持平 = 機制沒跑,查 redis-cli -n 2 HGETALL 'ETHERNET:eth1:15_pm_current')"
 echo
 
 # ─────────────────────────────────────────────────────────────
@@ -256,8 +264,8 @@ if [ "$KEEP" = "1" ]; then
 else
   # FLEX_COUNTER_DB(db5):三組逐一下發 disable(配置驅動,即時生效)
   for GRP in 1S_STAT_GAUGE 1S_STAT_STATUS 1S_STAT_COUNTER; do
-    vm "redis-cli -n 5 LPUSH 'FLEX_COUNTER_GROUP_TABLE_KEY_VALUE_OP_QUEUE' '$GRP' '[\"POLL_INTERVAL\",\"1000\",\"FLEX_COUNTER_STATUS\",\"disable\"]' SSET" >/dev/null
-    vm "redis-cli -n 5 PUBLISH 'FLEX_COUNTER_GROUP_TABLE_CHANNEL@5' G" >/dev/null
+    run "redis-cli -n 5 LPUSH 'FLEX_COUNTER_GROUP_TABLE_KEY_VALUE_OP_QUEUE' '$GRP' '[\"POLL_INTERVAL\",\"1000\",\"FLEX_COUNTER_STATUS\",\"disable\"]' SSET" >/dev/null
+    run "redis-cli -n 5 PUBLISH 'FLEX_COUNTER_GROUP_TABLE_CHANNEL@5' G"
   done
   echo "  (三組已 disable 收尾;重跑本腳本即可再開)"; echo
 fi

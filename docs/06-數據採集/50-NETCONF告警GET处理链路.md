@@ -156,7 +156,7 @@ func (s *dbCuralarmStore) HGetAll(key string) (map[string]string, error)
 
 ### ⑩ 数据源 🟢(执行者:syncd,已有)
 
-`CURALARM|<resource>#<type-id>` 六字段(doc 46 §2③ 契约):`id/time-created/text/severity/type-id/resource`。本链路对它**只读**。
+`CURALARM|<resource>#<type-id>` 六字段(doc 46 §4③ 契约):`id/time-created/text/severity/type-id/resource`。本链路对它**只读**。
 
 ## §3 职责分工表(改哪里 = 改什么)
 

@@ -10,6 +10,13 @@
 # 注意: 演示序列 = 重置靜默 → pre-clear → raise → clear
 #       (先 pre-clear 是為了強制邊沿: vslib 對 alarm_status 跳變才發,同值不發)
 
+# ── 外部依賴(訂閱端二進制;腳本經 GNMI_BIN 變數找它)──────────────────
+# WSL 執行,僅首次準備(/tmp 重啟即丟,丟了重做):
+#      tar -xzf /tmp/opencode/gnmic.tar.gz -C /tmp/opencode/
+#      # 解出訂閱端 gnmic(開源 gNMI 客戶端,扮演網管側訂閱者)
+#      # 原始 tar.gz 來源:gnmic 官方 release v0.49.1(gnmic_0.49.1_Linux_x86_64.tar.gz,
+#      # 已存在於 /tmp/opencode/,正常情況不需重抓)
+
 set -u -o pipefail
 
 VM_SSH=${VM_SSH:-"sshpass -p YourPaSsWoRd ssh -o StrictHostKeyChecking=no -p 2222 admin@localhost"}
@@ -17,7 +24,8 @@ GNMI_ADDR=${GNMI_ADDR:-"localhost:8080"}          # 經 SSH 隧道到 VM 的 gnm
 GNMI_BIN=${GNMI_BIN:-$(command -v gnmic || echo /tmp/opencode/gnmic)}
 SIM_JSON=/usr/include/vslib/otai_sim_data/otai_linecard_notification_sim.json
 TUNNEL_PORT=8080
-LOG=/tmp/opencode/gnmi_demo_sub.$$.log
+LOG=/tmp/opencode/gnmi_demo_sub.log
+[ -f "$LOG" ] && mv "$LOG" "$LOG.$(date +%Y%m%d_%H%M%S).old"   # 舊 log 歸檔;最新永遠在固定名,不用查 pid
 TUNNEL_MINE=0
 SUB_PID=
 
@@ -32,7 +40,18 @@ cleanup() {
 trap cleanup EXIT
 
 # ── 0) 預檢 ──────────────────────────────────────────────
-[ -x "$GNMI_BIN" ] || die "gnmic 不存在: $GNMI_BIN(可用 GNMI_BIN= 指定)"
+if [ -x "$GNMI_BIN" ]; then
+    log "gnmic 就緒 ✓($GNMI_BIN)"
+    echo "[demo] 鏈路命令速覽:"
+    echo "   $GNMI_BIN"
+    echo "   # gNMI 訂閱客戶端(網管側);腳本稍後以它掛訂閱(經 SSH 隧道 :8080)"
+else
+    echo "[demo] gnmic 未就緒——準備命令(WSL 執行):" >&2
+    echo "  tar -xzf /tmp/opencode/gnmic.tar.gz -C /tmp/opencode/" >&2
+    echo "  # 解出訂閱端 gnmic(開源 gNMI 客戶端,扮演網管側訂閱者)" >&2
+    echo "  # 原始 tar.gz 來源:gnmic 官方 release v0.49.1(壓縮包已在 /tmp/opencode/)" >&2
+    die "執行上方命令後重跑本腳本(或 GNMI_BIN=<路徑> 指定別處)"
+fi
 vm true || die "VM 不可達"
 vm "sudo docker ps --format '{{.Names}}'" | grep -qx gnmi  || die "gnmi 容器沒在跑"
 vm "sudo docker ps --format '{{.Names}}'" | grep -qx syncd || die "syncd 容器沒在跑"
@@ -55,7 +74,7 @@ OP=$(vm "sudo docker exec syncd cat ${SIM_JSON}" \
 OP=${OP:-0}
 vm "echo '{\"linecard_oper_status\": ${OP}}' | sudo docker exec -i syncd sh -c 'cat > ${SIM_JSON}'"
 sleep 6
-log "旋鈕已重置靜默(oper_status=${OP})"
+log "步驟 0:歸零基線——線卡在位、無告警(oper_status=${OP})"
 
 # ── 3) 掛訂閱(後台,90 秒自滅)───────────────────────────
 "$GNMI_BIN" -a "$GNMI_ADDR" --insecure --encoding json_ietf \
@@ -72,9 +91,9 @@ inject() { # $1=alarm_status $2=alarm_type $3=severity $4=text
         | sudo docker exec -i syncd sh -c 'cat > ${SIM_JSON}'"
 }
 
-inject 1 22 5 "demo pre-clear";  sleep 8; log "① pre-clear 已注入(強制邊沿到 INACTIVE)"
-inject 0 22 5 "demo raise $(date +%H:%M:%S)"; sleep 8; log "② raise 已注入(期待 UPDATE 事件)"
-inject 1 22 5 "demo clear";      sleep 8; log "③ clear 已注入(期待 DELETE 事件)"
+inject 1 22 5 "demo pre-clear";  sleep 8; log "步驟 1:清場——發『解除告警』強制出一個邊沿"
+inject 0 22 5 "demo raise $(date +%H:%M:%S)"; sleep 8; log "步驟 2:舉牌——發新告警,訂閱端應收到 UPDATE 事件"
+inject 1 22 5 "demo clear";      sleep 8; log "步驟 3:摘牌——解除告警,訂閱端應收到 DELETE 事件"
 
 # ── 5) 流上事件摘要 ─────────────────────────────────────
 echo

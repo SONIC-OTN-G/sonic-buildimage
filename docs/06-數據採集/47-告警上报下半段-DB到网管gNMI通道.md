@@ -4,26 +4,28 @@
 
 ## §1 整体数据流全景图
 
+```mermaid
+sequenceDiagram
+    participant P as 演示者(上半段旋钮注入,doc 46)
+    participant D as STATE_DB(db6·CURALARM 现值+HISALARM 历史)
+    participant G as gnmi 容器(telemetry native 订阅 :8080)
+    participant N as 网管(gnmic 订阅端,经 SSH 隧道)
+    Note over P,N: 图例:🟢框架既有链路(零改动) 🔵验证/演示操作(人手)
+    Note over P,D: ── 阶段一·告警落地(上半段)──
+    P->>D: 🔵 注入告警 → syncd 写 CURALARM(六字段:id/resource/type/severity/text/time-created)
+    D->>G: 🟢 keyspace 事件(写入即推,µs 级)
+    Note over N,G: ── 阶段二·订阅建立(断线重连对账能力)──
+    N->>G: 🔵 gnmic 订阅 sonic-db:/STATE_DB/localhost/CURALARM(native origin,纯镜像零加工)
+    G->>N: 🟢 全表快照 + sync-response
+    Note over D,N: ── 阶段三·变更推送(零加工镜像)──
+    D->>G: 🟢 键新增/变更 → updates(带完整字段)
+    D->>G: 🟢 键删除 → deletes(⚠表级路径,不带键名)
+    G->>N: 🟢 事件流原样转发
+    Note over P,N: ── 阶段四·网管渲染──
+    N->>N: 收到事件流 →「告警上报到客户侧」闭环成立
 ```
-图例:🟢 原有(未改)   🔵 验证用操作(人手)     本段全程零代码改动
-      上半段(注入→syncd→写 DB)见 doc 46;本篇从 CURALARM 落库之后接续
 
-🔵(运维/仿真) 注入告警(上半段旋钮)
-│   json → vslib → syncd → STATE_DB db6 CURALARM|<resource>#<type>(六字段)
-│      ▼
-🟢(redis) keyspace 通知(写入即推,µs 级)
-│      ▼
-🟢(gnmi 容器 telemetry 进程) gNMI native 订阅服务(:8080,noTLS)
-│   sonic-db origin 路径 → redis db 映射,纯镜像零加工
-│   ├─ 订阅建立 → 全表快照 + sync-response(重连对账能力)
-│   ├─ 键新增/变更 → updates(带完整字段)
-│   └─ 键删除    → deletes(⚠表级路径,不带键名)
-│      ▼
-🔵(网管 NMS) gnmic 订阅端(WSL 宿主机,经 SSH 隧道)
-    实时收到事件流 —— "告警上报到客户侧"闭环成立,零代码
-```
-
-一句话:**注入是入场券,写 DB 是出厂行为,gnmi 容器是零改动的镜像通道,gnmic 看到什么网管就有什么——剩下的只是渲染。**
+一句话读法:蓝点是人的动作(上半段注入、网管侧订阅),绿点是框架既有链路(keyspace 推送、gnmi 镜像、gnmic 接收)——**gnmi 容器全程零改动,DB 里有什么网管就看到什么**;deletes 是表级路径不带键名(踩坑见 §2);逐环细节见 §2。
 
 ---
 
@@ -93,7 +95,7 @@ gnmic -a localhost:8080 --insecure --encoding json_ietf \
 
 时间戳语义:gnmic 外层 `"time"` 是**事件到达 gnmi 的时刻**;告警产生时刻用载荷里的 `time-created`(ns epoch,NMS 端负责换算)。
 
-同键重报去重:与 doc 46 §2③「首报为准」一致——同键重复 raise 在流上**无任何事件**(实测)。
+同键重报去重:与 doc 46 §4③「首报为准」一致——同键重复 raise 在流上**无任何事件**(实测)。
 
 **踩坑**:
 - DELETE 是表级的,不带键名——NMS 收到后必须 re-GET 才知道少了哪条;做告警台要按「delete→全量对账」设计
@@ -101,7 +103,7 @@ gnmic -a localhost:8080 --insecure --encoding json_ietf \
 
 ### ⑤ 字段 ↔ 网管需求对照 🟢
 
-| 需求(doc 46 §事项一) | CURALARM 字段 | 实测值示例 |
+| 需求(doc 46 §1) | CURALARM 字段 | 实测值示例 |
 |:--|:--|:--|
 | 告警 id | `id` | `linecard1#LOW_TEMPERATURE_ALARM` |
 | 对象 | `resource` | `linecard1` |
@@ -110,7 +112,7 @@ gnmic -a localhost:8080 --insecure --encoding json_ietf \
 | (白送)类型 | `type-id` | `LOW_TEMPERATURE_ALARM` |
 | (白送)原文 | `text` | `live CRITICAL raise - 20:xx:xx` |
 
-六字段即 syncd 写库的完整契约(`NotificationProcessor.cpp`,doc 46 §2③)——native 模式下**这六个字段就是接口格式**,gnmi 零加工透传。
+六字段即 syncd 写库的完整契约(`NotificationProcessor.cpp`,doc 46 §4③)——native 模式下**这六个字段就是接口格式**,gnmi 零加工透传。
 
 ### ⑥ 边界与后续 ⚪
 
