@@ -1,0 +1,10 @@
+#!/bin/bash
+
+EXEC_FLAGS=(-i)
+
+# Determine whether stdout is on a terminal
+if [ -t 1 ] ; then
+    EXEC_FLAGS+=(-t)
+fi
+
+exec sonic-runtime exec "${EXEC_FLAGS[@]}" database -- redis-cli "$@"

@@ -1,0 +1,110 @@
+diff --git a/libcontainer/nsenter/nsexec.c b/libcontainer/nsenter/nsexec.c
+index 59b7851..eec460a 100644
+--- a/libcontainer/nsenter/nsexec.c
++++ b/libcontainer/nsenter/nsexec.c
+@@ -725,6 +725,7 @@ static void log_cpu_affinity()
+ void nsexec(void)
+ {
+ 	int pipenum;
++	int exec_rootfd = -1;
+ 	jmp_buf env;
+ 	int sync_child_pipe[2], sync_grandchild_pipe[2];
+ 	struct nlconfig_t config = { 0 };
+@@ -746,6 +747,12 @@ void nsexec(void)
+ 		return;
+ 	}
+ 
++	/* SONIC-OFFLINE: only exec receives this internal, inherited root fd.
++	 * It is opened by the trusted parent before namespaces change. */
++	exec_rootfd = getenv_int("_LIBCONTAINER_EXECROOTFD");
++	if (exec_rootfd >= 0 && exec_rootfd < 3)
++		bailx("offline exec-root: invalid root descriptor");
++
+ 	write_log(DEBUG, "=> nsexec container setup");
+ 
+ 	/* Log initial CPU affinity, this is solely for the tests in
+@@ -1032,6 +1039,28 @@ void nsexec(void)
+ 			if (config.namespaces)
+ 				join_namespaces(config.namespaces);
+ 
++			/* SONIC-OFFLINE FIX: setns(CLONE_NEWNS) does not copy the
++			 * container init's independent chroot. On our outer-chroot
++			 * deployment this otherwise exposes the vendor host root to
++			 * exec (redis-cli missing, wrong /proc PID numbering).
++			 * Restore the pinned init root before spawning stage-2 and
++			 * BEFORE dropping capabilities or installing seccomp. Fail
++			 * closed: never execute a command in the wrong filesystem.
++			 * Close this fd now; it must not reach the business process. */
++			if (exec_rootfd >= 0) {
++				if (fchdir(exec_rootfd) < 0)
++					bail("offline exec-root: fchdir init root");
++				if (chroot(".") < 0)
++					bail("offline exec-root: chroot init root");
++				if (chdir("/") < 0)
++					bail("offline exec-root: chdir root");
++				if (close(exec_rootfd) < 0)
++					bail("offline exec-root: close root descriptor");
++				exec_rootfd = -1;
++				write_log(DEBUG, "offline exec-root: restored container init root");
++			}
++
++
+ 			/*
+ 			 * Deal with user namespaces first. They are quite special, as they
+ 			 * affect our ability to unshare other namespaces and are used as
+diff --git a/libcontainer/process_linux.go b/libcontainer/process_linux.go
+index b03cdf0..a3b877e 100644
+--- a/libcontainer/process_linux.go
++++ b/libcontainer/process_linux.go
+@@ -24,6 +24,7 @@ import (
+ 
+ 	"github.com/opencontainers/runtime-spec/specs-go"
+ 
++	"github.com/cyphar/filepath-securejoin/pathrs-lite/procfs"
+ 	"github.com/opencontainers/cgroups"
+ 	"github.com/opencontainers/cgroups/fs2"
+ 	"github.com/opencontainers/runc/internal/cmsg"
+@@ -459,6 +460,43 @@ func (p *setnsProcess) startWithCgroupFD() error {
+ 
+ func (p *setnsProcess) start() (retErr error) {
+ 	defer p.comm.closeParent()
++	defer p.comm.closeChild() // also release log pipe on pre-spawn validation errors
++
++	// SONIC-OFFLINE FIX: The vendor device runs iSulad inside an outer chroot.
++	// Joining its container's mount namespace can select the namespace root
++	// (the host root), not the init process's chroot. Pin the init's actual
++	// root BEFORE setns, and restore it in single-threaded nsexec before
++	// credentials/seccomp/cwd are applied. Do not resolve /proc after setns:
++	// that procfs may describe a different PID namespace on this device.
++	if !p.container.hasInit() {
++		return errors.New("offline exec-root: container init is no longer alive")
++	}
++	procRoot, err := procfs.OpenProcRoot()
++	if err != nil {
++		return fmt.Errorf("offline exec-root: open trusted procfs: %w", err)
++	}
++	defer procRoot.Close()
++	procPID, err := procRoot.OpenPid(p.initProcessPid, ".")
++	if err != nil {
++		return fmt.Errorf("offline exec-root: open init proc directory: %w", err)
++	}
++	defer procPID.Close()
++	// Deliberately follow this one kernel-generated magic link. Generic
++	// safe-path helpers reject it; resolving a user-supplied path is forbidden.
++	rootFD, err := unix.Openat(int(procPID.Fd()), "root", unix.O_PATH|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
++	if err != nil {
++		return fmt.Errorf("offline exec-root: pin init root: %w", err)
++	}
++	execRoot := os.NewFile(uintptr(rootFD), "container-init-root")
++	defer execRoot.Close() // parent's copy; child closes its copy before Go init
++	// hasInit checks the saved start time too, rejecting PID reuse while
++	// obtaining the root reference. Existing namespace checks remain intact.
++	if !p.container.hasInit() {
++		return errors.New("offline exec-root: container init changed while pinning root")
++	}
++	p.cmd.ExtraFiles = append(p.cmd.ExtraFiles, execRoot)
++	p.cmd.Env = append(p.cmd.Env, "_LIBCONTAINER_EXECROOTFD="+
++		strconv.Itoa(stdioFdCount+len(p.cmd.ExtraFiles)-1))
+ 
+ 	// Get the "before" value of oom kill count.
+ 	oom, _ := p.manager.OOMKillCount()

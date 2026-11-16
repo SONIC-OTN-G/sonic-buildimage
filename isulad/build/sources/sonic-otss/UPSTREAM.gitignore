@@ -1,0 +1,48 @@
+# Compiled Source #
+###################
+*.la
+*.lo
+*.o
+
+# Packaging Files #
+###################
+debian/.debhelper/
+debian/autoreconf.after
+debian/autoreconf.before
+debian/debhelper-build-stamp
+debian/files
+debian/*.debhelper.log
+debian/*.substvars
+
+debian/otss/
+debian/otss-dbg/
+
+aclocal.m4
+autom4te.cache/
+config.h
+config.h.in
+config.h.in~
+config.log
+config.status
+configure
+Makefile.in
+**/Makefile
+autom4te.cache
+config/
+libtool
+stamp-h1
+
+# Temp files #
+##############
+*~
+*.swp
+
+# Dependency Folder #
+#####################
+deps/
+**/.deps
+
+# binaries
+cfgmgr/linecardmgrd
+configsyncd/configsyncd
+orchagent/orchagent

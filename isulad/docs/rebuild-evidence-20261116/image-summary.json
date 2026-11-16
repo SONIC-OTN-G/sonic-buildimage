@@ -1,0 +1,40 @@
+{
+  "database": {
+    "tag": "sonic-database-standalone:arm64-rebuild-20261116",
+    "image_id": "sha256:1d7f082ae6c8e83db999cf48fb987bdaaa650296dc1930eb6d6782ac1b006285",
+    "architecture": "arm64",
+    "image_bytes": 76036256,
+    "archive": "docker-database-standalone-arm64.tar.gz",
+    "archive_bytes": 75417240,
+    "archive_sha256": "ac5f5d7b4419a843feb4508b1158dd982de21bcb8f695d589cde8f33bbac602b",
+    "entrypoint": [
+      "/usr/bin/redis-server"
+    ]
+  },
+  "otss": {
+    "tag": "sonic-otss-standalone:arm64-rebuild-20261116",
+    "image_id": "sha256:2fd07ff56ae5f7ae7f368776a19b2b407c64c3186efe70477e9d9065402110c9",
+    "architecture": "arm64",
+    "image_bytes": 78339133,
+    "archive": "docker-otss-standalone-arm64.tar.gz",
+    "archive_bytes": 77681533,
+    "archive_sha256": "fe6c61b95f3ef7d44dcf17aefb3072b1e4ec1cfab03475bfd917c91ec29b1ca7",
+    "entrypoint": [
+      "/usr/bin/python3",
+      "/usr/local/bin/standalone-probe.py"
+    ]
+  },
+  "syncd": {
+    "tag": "sonic-syncd-standalone:arm64-rebuild-20261116",
+    "image_id": "sha256:9f6c2606ddde364f88287624291fb36470f2911ed9d8303a098ccb3702893e76",
+    "architecture": "arm64",
+    "image_bytes": 77597896,
+    "archive": "docker-syncd-standalone-arm64.tar.gz",
+    "archive_bytes": 76942701,
+    "archive_sha256": "02df5042e0131598ac25e1645417a54035291dda4e1c3db2756bede7f1b45793",
+    "entrypoint": [
+      "/usr/bin/python3",
+      "/usr/local/bin/standalone-probe.py"
+    ]
+  }
+}

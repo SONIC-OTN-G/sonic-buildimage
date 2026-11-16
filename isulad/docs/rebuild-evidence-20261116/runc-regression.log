@@ -1,0 +1,7 @@
+WORKDIR /tmp/offline-exec-regression-osxoedj6
+Seccomp:	2
+time="2026-11-16T08:51:33Z" level=error msg="exec failed: cannot exec in a stopped container"
+PASS first root=76:31273 user/cwd/proc/seccomp/fd/stopped-exec
+Seccomp:	2
+time="2026-11-16T08:51:34Z" level=error msg="exec failed: cannot exec in a stopped container"
+PASS recreate root=76:31273 user/cwd/proc/seccomp/fd/stopped-exec

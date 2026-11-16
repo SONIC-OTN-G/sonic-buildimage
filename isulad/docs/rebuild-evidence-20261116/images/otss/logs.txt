@@ -1,0 +1,8 @@
+loaded libotaimeta.so
+loaded libotaimetadata.so
+loaded libotairedis.so
+otss: ARM64 libraries loaded; standalone inspection process ready; business daemon not started
+loaded libotaimeta.so
+loaded libotaimetadata.so
+loaded libotairedis.so
+otss: ARM64 libraries loaded; standalone inspection process ready; business daemon not started

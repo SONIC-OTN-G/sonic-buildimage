@@ -1,0 +1,5 @@
+PASS: original deployment archive passed 9929 file SHA256 checks.
+PASS: xz package decompresses to byte-identical tar data as original tested gzip package.
+PASS: bundled ARM64 BusyBox xz integrity check.
+XZ bytes: 68560564
+XZ SHA256: 3eee6cdf9f524a0b696ba207fa7aa339c42b49c13e67b043e56ea6c6e57c355e

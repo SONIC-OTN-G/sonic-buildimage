@@ -1,0 +1,220 @@
+[
+    {
+        "Id": "1686b8d42dab918618760a391665678f9cf9d03d0e18acc8af49e2e0e953d031",
+        "Created": "2026-11-16T09:07:02.191347585Z",
+        "Path": "/usr/bin/redis-server",
+        "Args": [
+            "/etc/redis/sonic-standalone.conf",
+            "--ignore-warnings",
+            "ARM64-COW-BUG"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 90103,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2026-11-16T09:07:08.786725693Z",
+            "FinishedAt": "2026-11-16T09:07:08.499760064Z"
+        },
+        "Image": "sha256:1d7f082ae6c8e83db999cf48fb987bdaaa650296dc1930eb6d6782ac1b006285",
+        "ResolvConfPath": "/var/lib/docker/containers/1686b8d42dab918618760a391665678f9cf9d03d0e18acc8af49e2e0e953d031/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/1686b8d42dab918618760a391665678f9cf9d03d0e18acc8af49e2e0e953d031/hostname",
+        "HostsPath": "/var/lib/docker/containers/1686b8d42dab918618760a391665678f9cf9d03d0e18acc8af49e2e0e953d031/hosts",
+        "LogPath": "/var/lib/docker/containers/1686b8d42dab918618760a391665678f9cf9d03d0e18acc8af49e2e0e953d031/1686b8d42dab918618760a391665678f9cf9d03d0e18acc8af49e2e0e953d031-json.log",
+        "Name": "/rebuild-test-database-2a31270957",
+        "RestartCount": 0,
+        "Driver": "overlayfs",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": [
+                "/tmp/isulad-image-validation-20261116/database:/probe-output:rw"
+            ],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "none",
+            "PortBindings": {},
+            "RestartPolicy": {
+                "Name": "no",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": [],
+            "BlkioDeviceReadBps": [],
+            "BlkioDeviceWriteBps": [],
+            "BlkioDeviceReadIOps": [],
+            "BlkioDeviceWriteIOps": [],
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": [],
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": [],
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "Storage": {
+            "RootFS": {
+                "Snapshot": {
+                    "Name": "overlayfs"
+                }
+            }
+        },
+        "Mounts": [
+            {
+                "Type": "bind",
+                "Source": "/tmp/isulad-image-validation-20261116/database",
+                "Destination": "/probe-output",
+                "Mode": "rw",
+                "RW": true,
+                "Propagation": "rprivate"
+            }
+        ],
+        "Config": {
+            "Hostname": "1686b8d42dab",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "ALLOW_EMULATION=1",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "DEBIAN_FRONTEND=noninteractive"
+            ],
+            "Cmd": [
+                "/etc/redis/sonic-standalone.conf",
+                "--ignore-warnings",
+                "ARM64-COW-BUG"
+            ],
+            "Image": "sonic-database-standalone:arm64-rebuild-20261116",
+            "Volumes": null,
+            "WorkingDir": "",
+            "Entrypoint": [
+                "/usr/bin/redis-server"
+            ],
+            "Labels": {
+                "org.opencontainers.image.revision": "a77538a37517b9a953e32191a77e83c6b5a11c14",
+                "org.opencontainers.image.title": "SONiC database ARM64 standalone test",
+                "sonic.test.scope": "Standalone Redis and swsscommon; not full SONiC database"
+            },
+            "StopSignal": "SIGTERM"
+        },
+        "NetworkSettings": {
+            "SandboxID": "3ef84697062f928a4a63fd48cefef111f8e7da2c0208419b5a2da74fb1a683b6",
+            "SandboxKey": "/var/run/docker/netns/3ef84697062f",
+            "Ports": {},
+            "Networks": {
+                "none": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "1f12264b017e92e180ac9202a6e5bc7a262bbbbfc175de4c4c6d0aa053d2231e",
+                    "EndpointID": "5c0a26fe86838c167f18f309088cf597cbec86608abf3a4679b40d34d1a01e47",
+                    "Gateway": "",
+                    "IPAddress": "",
+                    "MacAddress": "",
+                    "IPPrefixLen": 0,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": null
+                }
+            }
+        },
+        "ImageManifestDescriptor": {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "digest": "sha256:1d7f082ae6c8e83db999cf48fb987bdaaa650296dc1930eb6d6782ac1b006285",
+            "size": 2290,
+            "annotations": {
+                "io.containerd.image.name": "docker.io/library/sonic-database-standalone:arm64-rebuild-20261116",
+                "org.opencontainers.image.ref.name": "arm64-rebuild-20261116"
+            },
+            "platform": {
+                "architecture": "arm64",
+                "os": "linux"
+            }
+        }
+    }
+]

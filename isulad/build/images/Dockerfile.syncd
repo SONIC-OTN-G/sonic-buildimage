@@ -1,0 +1,9 @@
+FROM sonic-database-standalone:arm64-20261022
+COPY ot-rootfs/ /
+COPY standalone-probe.py check-business-binary.py /usr/local/bin/
+COPY ot-source-lock.json /usr/share/sonic/ot-source-lock.json
+COPY licenses/ /usr/share/doc/sonic-ot-sources/
+RUN ldconfig && python3 /usr/local/bin/standalone-probe.py syncd --check
+LABEL sonic.test.scope="ARM64 syncd standalone inspection; business daemon not started by default"
+ENTRYPOINT ["/usr/bin/python3", "/usr/local/bin/standalone-probe.py"]
+CMD ["syncd"]

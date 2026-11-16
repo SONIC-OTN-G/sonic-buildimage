@@ -1,0 +1,46 @@
+#!/usr/bin/python3
+"""Compatibility for iSulad 2.1.5's redundant size= option on /dev/shm binds.
+The tmpfs is already mounted and sized by iSulad before runc binds it.
+runc 1.5 rejects filesystem-specific options on bind mounts.
+"""
+import sys,os,json,tempfile
+args=sys.argv[1:]
+# Vendor fix: Linux 5.10 boots from initial rootfs and pivot_root failed
+# with EINVAL. Apply no-pivot to create/run only. The patched runc-real
+# independently restores init's root for exec; --no-pivot is not an exec flag.
+# Parse only the runtime subcommand. A business exec argument named "run"
+# or "create" must never trigger this adapter or receive --no-pivot.
+valued_globals = {'--root', '--log', '--log-format', '--rootless', '--criu'}
+i = 0
+while i < len(args):
+    if not args[i].startswith('-'):
+        break
+    if args[i] in valued_globals:
+        i += 2
+    else:
+        i += 1
+command = args[i] if i < len(args) else None
+if command in ('create', 'run'):
+    if '--no-pivot' not in args[i+1:]:
+        args.insert(i + 1, '--no-pivot')
+    bundle=os.getcwd()
+    for i,a in enumerate(args):
+        if a in ('--bundle','-b') and i+1<len(args): bundle=args[i+1]
+        elif a.startswith('--bundle='): bundle=a.split('=',1)[1]
+    path=os.path.join(bundle,'config.json')
+    if os.path.isfile(path):
+        with open(path) as f: config=json.load(f)
+        changed=False
+        for m in config.get('mounts',[]):
+            opts=m.get('options',[])
+            if m.get('destination')=='/dev/shm' and (m.get('type')=='bind' or 'bind' in opts or 'rbind' in opts):
+                cleaned=[o for o in opts if not o.startswith('size=')]
+                if cleaned!=opts: m['options']=cleaned;changed=True
+        if changed:
+            fd,tmp=tempfile.mkstemp(prefix='.runc-compat-',dir=bundle)
+            with os.fdopen(fd,'w') as f: json.dump(config,f)
+            os.replace(tmp,path)
+            try:
+                with open('/evidence/runc-compat.log','a') as f:f.write('Removed redundant size= on /dev/shm bind: '+path+'\n')
+            except OSError:pass
+os.execv('/usr/libexec/runc-real',['runc']+args)

@@ -1,0 +1,10 @@
+# Standalone release artifacts: normal Git binary files, never LFS.
+*.tar.gz -filter -diff -merge -text
+*.tar.xz -filter -diff -merge -text
+busybox-arm64 -filter -diff -merge -text
+*.md text eol=lf
+*.txt text eol=lf
+*.patch text eol=lf
+*.sha256 text eol=lf
+SHA256SUMS text eol=lf
+.gitattributes text eol=lf

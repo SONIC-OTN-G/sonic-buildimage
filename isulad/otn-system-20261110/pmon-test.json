@@ -1,0 +1,42 @@
+[
+  {
+    "test": "native inventory",
+    "passed": true,
+    "time_ns": 1794276830902820376
+  },
+  {
+    "test": "PSU removed",
+    "passed": true,
+    "time_ns": 1794276831924432995
+  },
+  {
+    "test": "PSU inserted",
+    "passed": true,
+    "time_ns": 1794276834963205655
+  },
+  {
+    "test": "native temperature report",
+    "passed": true,
+    "time_ns": 1794276866111765548
+  },
+  {
+    "test": "thermal policy fan full speed",
+    "passed": true,
+    "time_ns": 1794276866112815946
+  },
+  {
+    "test": "thermal policy recovery",
+    "passed": true,
+    "time_ns": 1794276869123368704
+  },
+  {
+    "test": "module removed",
+    "passed": true,
+    "time_ns": 1794276871130752705
+  },
+  {
+    "test": "module inserted",
+    "passed": true,
+    "time_ns": 1794276881147761909
+  }
+]

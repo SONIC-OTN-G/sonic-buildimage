@@ -1,0 +1,22 @@
+{
+  "sonic-swss-common": {
+    "status": "MATCH",
+    "files": 287,
+    "excluded": "Git ignore filename rename only"
+  },
+  "sonic-otairedis": {
+    "status": "MATCH",
+    "files": 266,
+    "excluded": "Git ignore filename rename only"
+  },
+  "sonic-otss": {
+    "status": "MATCH",
+    "files": 91,
+    "excluded": "Git ignore filename rename only"
+  },
+  "docker-database": {
+    "status": "MATCH",
+    "files": 9,
+    "excluded": "Git ignore filename rename only"
+  }
+}

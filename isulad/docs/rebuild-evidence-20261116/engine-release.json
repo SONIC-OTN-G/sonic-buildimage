@@ -1,0 +1,9 @@
+{
+  "release": "rebuild-20261116",
+  "source_manifest": "fa599bd5aaee3dcaf7453fad25def3848fe35b0b0e483f939629cc714c0d74fd",
+  "validation": "build only; run regression before deployment",
+  "outputs": {},
+  "runc_builder": "isulad-rebuild-runc-builder:rebuild-20261116",
+  "runc_builder_id": "sha256:014a1a11546122c27ef329aa4ae553f4f8871f4060d5d8b4ba040b44d27071fd",
+  "runc_real_sha256": "cfe8ce804782bd89ff1749d5bff74c64508c97541ac0bd394140b932c66877d5"
+}

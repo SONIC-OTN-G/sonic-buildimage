@@ -1,0 +1,2 @@
+usr/bin/syncd*
+syncd/scripts/* usr/bin

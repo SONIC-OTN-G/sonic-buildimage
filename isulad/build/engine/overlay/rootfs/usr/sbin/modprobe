@@ -1,0 +1,10 @@
+#!/bin/sh
+# Availability-only helper. Never loads modules into the host kernel.
+BB=/usr/local/bin/busybox
+case "${1:-}" in
+ overlay) "$BB" grep -qw overlay /proc/filesystems && exit 0;;
+ br-netfilter|br_netfilter) [ -d /sys/module/br_netfilter ] && exit 0;;
+ *) echo "Offline bundle: automatic module loading disabled: $*" >&2; exit 1;;
+esac
+echo "Offline bundle: requested kernel feature is not currently available: $*" >&2
+exit 1

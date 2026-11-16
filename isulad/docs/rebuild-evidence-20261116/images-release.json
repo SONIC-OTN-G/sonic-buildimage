@@ -1,0 +1,12 @@
+{
+  "release": "rebuild-20261116",
+  "source_manifest": "a6f28f175cf164e9a9c6d43e224b7ea375da3e106c8ecabf1354b75dc3e23efe",
+  "outputs": {
+    "sonic-database-standalone:arm64-rebuild-20261116": "sha256:1d7f082ae6c8e83db999cf48fb987bdaaa650296dc1930eb6d6782ac1b006285",
+    "sonic-otss-standalone:arm64-rebuild-20261116": "sha256:2fd07ff56ae5f7ae7f368776a19b2b407c64c3186efe70477e9d9065402110c9",
+    "sonic-syncd-standalone:arm64-rebuild-20261116": "sha256:9f6c2606ddde364f88287624291fb36470f2911ed9d8303a098ccb3702893e76"
+  },
+  "ot_builder": "sonic-arm64-ot-builder:20261023",
+  "runtime_base_override": "sonic-arm64-runtime:20261022",
+  "source_match_evidence": "tested-source-comparison.json"
+}

@@ -1,0 +1,2 @@
+FROM sonic-arm64-swss-builder:20261022
+RUN apt-get update && apt-get install -y --no-install-recommends doxygen libxml-simple-perl libexcel-writer-xlsx-perl aspell aspell-en sudo && rm -rf /var/lib/apt/lists/*

@@ -1,0 +1,14 @@
+{
+  "sonic_buildimage_commit": "a77538a37517b9a953e32191a77e83c6b5a11c14",
+  "swsscommon_commit": "558ee25235235a470057cbd7d6bd28d86c2aa0f4",
+  "build_host": "x86_64 WSL with qemu-aarch64",
+  "target": "linux/arm64",
+  "scope": "Standalone database test derivative; Redis + swsscommon + sonic-db-cli",
+  "omissions": [
+    "SONiC config engine",
+    "YANG-dependent swsscommon classes",
+    "container orchestration",
+    "default SONiC entrypoint execution"
+  ],
+  "native_device_validation": "NOT RUN"
+}

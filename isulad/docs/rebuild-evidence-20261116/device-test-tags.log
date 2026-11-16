@@ -1,0 +1,2 @@
+rootfs/tests/test-container.sh:5:IMAGE=${IMAGE:-sonic-database-standalone:arm64-rebuild-20261116}
+rootfs/tests/test-ot-containers.sh:33:    IMAGE="sonic-$component-standalone:arm64-rebuild-20261116"

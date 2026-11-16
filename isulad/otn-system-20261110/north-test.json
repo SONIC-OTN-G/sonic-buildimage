@@ -1,0 +1,30 @@
+[
+  {
+    "test": "REST authenticated native platform state",
+    "passed": true
+  },
+  {
+    "test": "REST rejects unauthenticated request",
+    "passed": true
+  },
+  {
+    "test": "gNMI TLS Get native platform state",
+    "passed": true
+  },
+  {
+    "test": "gNMI Subscribe ONCE and sync",
+    "passed": true
+  },
+  {
+    "test": "gNMI rejects unauthenticated request",
+    "passed": true
+  },
+  {
+    "test": "NETCONF SSH hello/get native platform state",
+    "passed": true
+  },
+  {
+    "test": "SNMPv3 SHA256/AES native temperature",
+    "passed": true
+  }
+]

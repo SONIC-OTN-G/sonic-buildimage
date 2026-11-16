@@ -1,0 +1,33 @@
+{
+  "group": "root",
+  "default-runtime": "runc",
+  "graph": "/var/lib/isulad",
+  "state": "/var/run/isulad",
+  "log-level": "DEBUG",
+  "pidfile": "/var/run/isulad.pid",
+  "log-opts": {
+    "log-file-mode": "0600",
+    "log-path": "/evidence",
+    "max-file": "3",
+    "max-size": "10MB"
+  },
+  "log-driver": "file",
+  "container-log": {
+    "driver": "json-file"
+  },
+  "hook-spec": "/etc/default/isulad/hooks/default.json",
+  "start-timeout": "2m",
+  "storage-driver": "overlay2",
+  "storage-opts": [],
+  "registry-mirrors": [],
+  "insecure-registries": [],
+  "pod-sandbox-image": "",
+  "native.umask": "normal",
+  "network-plugin": "",
+  "cni-bin-dir": "",
+  "cni-conf-dir": "",
+  "image-layer-check": false,
+  "use-decrypted-key": true,
+  "insecure-skip-verify-enforce": false,
+  "websocket-server-listening-port": 19350
+}

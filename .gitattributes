@@ -1,0 +1,4 @@
+# Preserve checksum-locked isulad payload bytes across checkouts.
+isulad/** -text
+README.isulad.md text eol=lf
+.gitattributes text eol=lf

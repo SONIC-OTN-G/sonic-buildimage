@@ -1,0 +1,218 @@
+[
+    {
+        "Id": "78a3f961e0aa1c24534215c77505b6dfa1fac11e3e512548feff3f217759659e",
+        "Created": "2026-11-16T09:07:14.059430777Z",
+        "Path": "/usr/bin/python3",
+        "Args": [
+            "/usr/local/bin/standalone-probe.py",
+            "otss"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 90758,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2026-11-16T09:07:21.734906916Z",
+            "FinishedAt": "2026-11-16T09:07:21.451650594Z"
+        },
+        "Image": "sha256:2fd07ff56ae5f7ae7f368776a19b2b407c64c3186efe70477e9d9065402110c9",
+        "ResolvConfPath": "/var/lib/docker/containers/78a3f961e0aa1c24534215c77505b6dfa1fac11e3e512548feff3f217759659e/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/78a3f961e0aa1c24534215c77505b6dfa1fac11e3e512548feff3f217759659e/hostname",
+        "HostsPath": "/var/lib/docker/containers/78a3f961e0aa1c24534215c77505b6dfa1fac11e3e512548feff3f217759659e/hosts",
+        "LogPath": "/var/lib/docker/containers/78a3f961e0aa1c24534215c77505b6dfa1fac11e3e512548feff3f217759659e/78a3f961e0aa1c24534215c77505b6dfa1fac11e3e512548feff3f217759659e-json.log",
+        "Name": "/rebuild-test-otss-bbe1d146ac",
+        "RestartCount": 0,
+        "Driver": "overlayfs",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": [
+                "/tmp/isulad-image-validation-20261116/otss:/probe-output:rw"
+            ],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "none",
+            "PortBindings": {},
+            "RestartPolicy": {
+                "Name": "no",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": [],
+            "BlkioDeviceReadBps": [],
+            "BlkioDeviceWriteBps": [],
+            "BlkioDeviceReadIOps": [],
+            "BlkioDeviceWriteIOps": [],
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": [],
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": [],
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "Storage": {
+            "RootFS": {
+                "Snapshot": {
+                    "Name": "overlayfs"
+                }
+            }
+        },
+        "Mounts": [
+            {
+                "Type": "bind",
+                "Source": "/tmp/isulad-image-validation-20261116/otss",
+                "Destination": "/probe-output",
+                "Mode": "rw",
+                "RW": true,
+                "Propagation": "rprivate"
+            }
+        ],
+        "Config": {
+            "Hostname": "78a3f961e0aa",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "ALLOW_EMULATION=1",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "DEBIAN_FRONTEND=noninteractive"
+            ],
+            "Cmd": [
+                "otss"
+            ],
+            "Image": "sonic-otss-standalone:arm64-rebuild-20261116",
+            "Volumes": null,
+            "WorkingDir": "",
+            "Entrypoint": [
+                "/usr/bin/python3",
+                "/usr/local/bin/standalone-probe.py"
+            ],
+            "Labels": {
+                "org.opencontainers.image.revision": "a77538a37517b9a953e32191a77e83c6b5a11c14",
+                "org.opencontainers.image.title": "SONiC database ARM64 standalone test",
+                "sonic.test.scope": "ARM64 otss standalone inspection; business daemon not started by default"
+            },
+            "StopSignal": "SIGTERM"
+        },
+        "NetworkSettings": {
+            "SandboxID": "1352bb9d20c89b356742e693568dee666964e6c126b62ec62cac909c59549a45",
+            "SandboxKey": "/var/run/docker/netns/1352bb9d20c8",
+            "Ports": {},
+            "Networks": {
+                "none": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "1f12264b017e92e180ac9202a6e5bc7a262bbbbfc175de4c4c6d0aa053d2231e",
+                    "EndpointID": "f39f572ac3b66c75d77e3eb79b793f5c70b03cf473bc9f808fab05abf1ffa3a4",
+                    "Gateway": "",
+                    "IPAddress": "",
+                    "MacAddress": "",
+                    "IPPrefixLen": 0,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": null
+                }
+            }
+        },
+        "ImageManifestDescriptor": {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "digest": "sha256:2fd07ff56ae5f7ae7f368776a19b2b407c64c3186efe70477e9d9065402110c9",
+            "size": 3614,
+            "annotations": {
+                "io.containerd.image.name": "docker.io/library/sonic-otss-standalone:arm64-rebuild-20261116",
+                "org.opencontainers.image.ref.name": "arm64-rebuild-20261116"
+            },
+            "platform": {
+                "architecture": "arm64",
+                "os": "linux"
+            }
+        }
+    }
+]

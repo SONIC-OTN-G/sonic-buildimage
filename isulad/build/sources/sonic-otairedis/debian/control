@@ -1,0 +1,100 @@
+Source: sonic
+Maintainer: Weitang Zheng <zhengweitang.zwt@alibaba-inc.com>
+Section: net
+Priority: optional
+Build-Depends: debhelper (>=9), autotools-dev, libzmq5-dev
+Standards-Version: 1.0.0
+
+Package: syncd
+Architecture: any
+Conflicts: syncd-ot-vs
+Description: This package contains sync daemon for SONiC project.
+  This sync daemon syncs the ASIC_DB in Redis database and the real Optical transport linecard via OTAI.
+
+Package: syncd-ot-vs
+Architecture: any
+Conflicts: syncd
+Description: This package contains sync daemon for SONiC project linked with virtual Optical transport linecard.
+  This sync daemon syncs the ASIC_DB in Redis database and the real Optical transport linecard via OTAI.
+
+Package: libotairedis
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Pre-Depends}
+Section: libs
+Description: This package contains OTAI-Redis implementation for SONiC project.
+
+Package: libotairedis-dev
+Architecture: any
+Depends: libotairedis (= ${binary:Version}), libzmq5-dev
+Section: libdevel
+Description: This package contains development files for OTAI-Redis.
+
+Package: libotaivs
+Architecture: any
+Section: libs
+Description: This package contains OTAI-Virtual Optical transport linecard implementation for SONiC project.
+
+Package: libotaivs-dev
+Architecture: any
+Depends: libotaivs (= ${binary:Version})
+Section: libdevel
+Description: This package contains development files for OTAI-Optical transport linecard.
+
+Package: libotaimetadata
+Architecture: any
+Section: libs
+Description: This package contains OTAI-Metadata implementation for SONiC project.
+
+Package: libotaimetadata-dev
+Architecture: any
+Depends: libotaimetadata (= ${binary:Version})
+Section: libdevel
+Description: This package contains development files for OTAI-Metadata.
+
+Package: syncd-dbg
+Architecture: any
+Section: debug
+Priority: extra
+Conflicts: syncd-ot-vs
+Depends:
+    syncd (= ${binary:Version}),
+    ${misc:Depends}
+Description: debugging symbols for syncd
+
+Package: syncd-ot-vs-dbg
+Architecture: any
+Section: debug
+Priority: extra
+Conflicts: syncd-dbg
+Depends:
+    syncd-ot-vs (= ${binary:Version}),
+    ${misc:Depends}
+Description: debugging symbols for syncd-ot-vs
+
+Package: libotairedis-dbg
+Architecture: any
+Section: debug
+Priority: extra
+Depends:
+    libotairedis (= ${binary:Version}),
+    ${misc:Depends}
+Description: debugging symbols for libotairedis
+
+Package: libotaivs-dbg
+Architecture: any
+Section: debug
+Priority: extra
+Depends:
+    libotaivs (= ${binary:Version}),
+    ${misc:Depends}
+Description: debugging symbols for libotaivs
+
+Package: libotaimetadata-dbg
+Architecture: any
+Section: debug
+Priority: extra
+Depends:
+    libotaimetadata (= ${binary:Version}),
+    ${misc:Depends}
+Description: debugging symbols for libotaimetadata
+

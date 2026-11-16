@@ -1,0 +1,26 @@
+{
+  "ot": {
+    "reference": "sonic-arm64-ot-builder:20261023",
+    "image_id": "sha256:c87a39176049c2e81ca1e2025dd9f9aab2c977103168676560ee3a49f65fea7c",
+    "architecture": "arm64",
+    "repo_digests": [
+      "sonic-arm64-ot-builder@sha256:c87a39176049c2e81ca1e2025dd9f9aab2c977103168676560ee3a49f65fea7c"
+    ]
+  },
+  "runc": {
+    "reference": "sonic-runc-fix-builder:20261106",
+    "image_id": "sha256:014a1a11546122c27ef329aa4ae553f4f8871f4060d5d8b4ba040b44d27071fd",
+    "architecture": "amd64",
+    "repo_digests": [
+      "sonic-runc-fix-builder@sha256:014a1a11546122c27ef329aa4ae553f4f8871f4060d5d8b4ba040b44d27071fd"
+    ]
+  },
+  "runtime": {
+    "reference": "sonic-arm64-runtime:20261022",
+    "image_id": "sha256:94d4b2bf29603013b7014eb10662e328871621d6a805a16a3107be6661ae2aac",
+    "architecture": "arm64",
+    "repo_digests": [
+      "sonic-arm64-runtime@sha256:94d4b2bf29603013b7014eb10662e328871621d6a805a16a3107be6661ae2aac"
+    ]
+  }
+}

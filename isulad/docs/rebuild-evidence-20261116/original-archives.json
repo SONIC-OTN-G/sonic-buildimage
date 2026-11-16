@@ -1,0 +1,37 @@
+[
+  {
+    "file": "docker-database-standalone-arm64.tar.gz",
+    "sha256": "894c13899938cb541c021324e29e01064ec74c75c15bc0357732d7ef4a0fef38",
+    "status": "UNCHANGED"
+  },
+  {
+    "file": "docker-otss-standalone-arm64.tar.gz",
+    "sha256": "e8f786b866f588bec45cf47b7a67b900e17a42cebca3f49cd50fd7422be92a9e",
+    "status": "UNCHANGED"
+  },
+  {
+    "file": "docker-syncd-standalone-arm64.tar.gz",
+    "sha256": "0f46326c0d0f5694258af791c0b6f6199e13e84bffdd63b952efcc43c462e797",
+    "status": "UNCHANGED"
+  },
+  {
+    "file": "isulad-offline-arm64-fix-20261106/isulad-exec-fix-source-20261106.tar.gz",
+    "sha256": "f27cabf9b27d624c3f5031231a4d0d86db865bbbac7d040e9ebba8ec16a7bab9",
+    "status": "UNCHANGED"
+  },
+  {
+    "file": "isulad-offline-arm64-fix-20261106/isulad-offline-arm64-fix-20261106-r1.tar.xz",
+    "sha256": "3eee6cdf9f524a0b696ba207fa7aa339c42b49c13e67b043e56ea6c6e57c355e",
+    "status": "UNCHANGED"
+  },
+  {
+    "file": "isulad-offline-arm64-fix-20261106/\u9a8c\u8bc1\u65e5\u5fd7-20261106.tar.gz",
+    "sha256": "55f66c4442450c491dab892c71279309f4b9280dcf03edcf296d92b765f5f256",
+    "status": "UNCHANGED"
+  },
+  {
+    "file": "otn-system-20261110/otn-system-arm64-preview-20261110.tar.gz",
+    "sha256": "c2741dcc1ab7ddd9372fa06e796dac5781c60bf76f2e79ad77b7b7b8108eb18a",
+    "status": "UNCHANGED"
+  }
+]

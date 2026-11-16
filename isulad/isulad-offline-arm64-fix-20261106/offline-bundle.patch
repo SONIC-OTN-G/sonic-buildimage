@@ -1,0 +1,261 @@
+--- a/control.sh
++++ b/control.sh
+@@ -7,7 +7,7 @@
+ # Do not expose the guest dynamic binaries to host shell PATH.
+ export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+ [ "$("$BB" id -u)" = 0 ] || { echo 'Run as root (sudo is not required if already root).'; exit 1; }
+-"$BB" mkdir -p "$BASE/logs" "$BASE/run" "$BASE/data" "$BASE/inbox"
++"$BB" mkdir -p "$BASE/logs" "$BASE/run" "$BASE/data" "$BASE/inbox" "$BASE/evidence"
+ umask 077
+ alive() {
+  PID=$("$BB" cat "$BASE/run/daemon.pid" 2>/dev/null) || return 1
+@@ -22,6 +22,18 @@
+ case "${1:-help}" in
+  start)
+   if alive; then echo "Already running pid=$PID"; exit 0; fi
++  # Vendor fix: overlay2 requires a registered kernel filesystem. A .ko
++  # is kernel-specific; never auto-load an arbitrary module from this bundle.
++  if ! "$BB" grep -qw overlay /proc/filesystems; then
++   echo 'ERROR: OverlayFS unavailable. Load the matching vendor overlay.ko on HOST, then retry.' >&2
++   echo 'Check: bin/busybox grep -w overlay /proc/filesystems' >&2
++   exit 1
++  fi
++  # Vendor fix: iSulad lstat/security-check of this directory failed on a
++  # clean device. Its location is data/ because data is bound to graph root.
++  "$BB" mkdir -p "$BASE/data/isulad_tmpdir"
++  "$BB" chown 0:0 "$BASE/data/isulad_tmpdir"
++  "$BB" chmod 700 "$BASE/data/isulad_tmpdir"
+   "$BB" chroot "$ROOT" /usr/bin/isula --version || exit 1
+   "$BB" sh -c 'trap "" HUP; exec "$@"' sh "$BB" unshare -m -n "$BB" sh "$BASE/scripts/ns-start.sh" "$BASE" > "$BASE/logs/start.log" 2>&1 < /dev/null &
+   SUP=$!
+@@ -66,7 +78,13 @@
+   "$BB" cat /proc/mounts > "$BASE/logs/host-mounts.txt"
+   "$BB" df -k "$BASE" > "$BASE/logs/host-disk.txt"
+   if alive; then client info > "$BASE/logs/engine-info.txt" 2>&1; client ps -a > "$BASE/logs/containers.txt" 2>&1; fi
+-  "$BB" tar -czf "$BASE/diagnostics.tar.gz" -C "$BASE" logs evidence
++  # Minimal vendor PATH may not contain gzip. BusyBox tar creation with
++  # -z can exec an external gzip, so invoke the bundled applets explicitly.
++  # Check every stage; never print success for a missing/truncated archive.
++  "$BB" tar -cf "$BASE/diagnostics.tar" -C "$BASE" logs evidence || exit 1
++  "$BB" gzip -c "$BASE/diagnostics.tar" > "$BASE/diagnostics.tar.gz" || exit 1
++  "$BB" gzip -t "$BASE/diagnostics.tar.gz" || exit 1
++  "$BB" rm -f "$BASE/diagnostics.tar"
+   echo "$BASE/diagnostics.tar.gz"
+   ;;
+  *) echo 'Usage: sh control.sh check|start|status|stop|collect|cli ARGS|shell [SCRIPT]';;
+--- a/scripts/ns-start.sh
++++ b/scripts/ns-start.sh
+@@ -3,10 +3,10 @@
+ BASE=$1
+ BB="$BASE/bin/busybox"
+ R="$BASE/rootfs"
++# Vendor fix: all mount changes stay in control.sh's NEW mount namespace.
++# In particular never unmount/rearrange the firmware's cpu,cpuacct hierarchy.
+ "$BB" mount --make-rprivate /
+ "$BB" ip link set lo up
+-echo 'Private mount namespace initialized.'
+-# runc requires the chroot root itself to be a mountpoint.
+ "$BB" mount --bind "$R" "$R"
+ "$BB" mount --bind /proc "$R/proc"
+ "$BB" mount --rbind /dev "$R/dev"
+@@ -15,37 +15,69 @@
+ "$BB" mount --bind "$BASE/inbox" "$R/inbox"
+ "$BB" mount --bind "$BASE/evidence" "$R/evidence"
+ "$BB" mount -t tmpfs -o mode=755,nosuid,nodev tmpfs "$R/run"
+-# Existing host v2 layout can be used directly. v1 is mirrored at standard paths.
+ if "$BB" awk '$2=="/sys/fs/cgroup" && $3=="cgroup2" {found=1} END {exit !found}' /proc/mounts; then
+  echo 'Using existing cgroup v2 hierarchy.'
+ else
+- echo 'Constructing private cgroup v1 standard paths.'
+- # /sys/fs exists in sysfs even on devices without /sys/fs/cgroup.
++ # Vendor fix: cgroups may be below /ofs1, not /sys/fs/cgroup. Mount a
++ # private directory tree; sysfs is shared but this covering mount is not.
+  "$BB" mount -t tmpfs -o mode=755,nosuid,nodev tmpfs "$R/sys/fs"
+  "$BB" mkdir -p "$R/sys/fs/cgroup"
+- while read -r NAME HIER NUM ENABLED; do
+-  case "$NAME" in \#*|'') continue;; esac
+-  [ "$ENABLED" = 1 ] || continue
+-  DEST="$R/sys/fs/cgroup/$NAME"
+-  "$BB" mkdir -p "$DEST"
++ ENABLED=$("$BB" awk '!/^#/ && $4==1 {print $1}' /proc/cgroups)
++ for NAME in $ENABLED; do
++  [ ! -e "$R/sys/fs/cgroup/$NAME" ] || continue
+   SRC=
+-  while read -r DEV MP TYPE OPTS REST; do
++  OPTS=
++  while read -r DEV MP TYPE MOPTS REST; do
+    [ "$TYPE" = cgroup ] || continue
+-   case ",$OPTS," in *",$NAME,"*) SRC=$MP; break;; esac
++   case ",$MOPTS," in *",$NAME,"*) SRC=$MP; OPTS=$MOPTS; break;; esac
+   done < /proc/mounts
+   if [ -n "$SRC" ]; then
+-   echo "Mirror $NAME from $SRC"
+-   "$BB" mount --bind "$SRC" "$DEST" || echo "WARNING: mirror failed: $NAME"
++   # Vendor fix: preserve co-mounted controllers as ONE mount. runc
++   # derives mount data from the mountpoint basename. Binding cpu,cpuacct
++   # separately as 'cpu' and 'cpuacct' caused EPERM in the cgroup namespace.
++   GROUP=
++   for C in $ENABLED; do
++    case ",$OPTS," in *",$C,"*) GROUP=${GROUP:+$GROUP,}$C;; esac
++   done
++   DEST="$R/sys/fs/cgroup/$GROUP"
++   "$BB" mkdir -p "$DEST"
++   echo "Mirror $GROUP from $SRC"
++   "$BB" mount --bind "$SRC" "$DEST"
++   for C in $ENABLED; do
++    case ",$GROUP," in
++     *",$C,"*) [ "$C" = "$GROUP" ] || "$BB" ln -s "$GROUP" "$R/sys/fs/cgroup/$C";;
++    esac
++   done
+   else
+-   echo "Mount enabled controller $NAME"
+-   "$BB" mount -t cgroup -o "$NAME" "isulad-$NAME" "$DEST" || echo "WARNING: mount failed: $NAME"
++   # Vendor fix: CONFIG_CGROUP_DEVICE was enabled, but devices had no
++   # mount. Expose enabled/unmounted controllers privately, not on host.
++   DEST="$R/sys/fs/cgroup/$NAME"
++   "$BB" mkdir -p "$DEST"
++   if ! "$BB" mount -t cgroup -o "$NAME" "isulad-$NAME" "$DEST"; then
++    # /proc/cgroups enabled=1 does not prove v1 support (newer kernels
++    # may compile memory/cpuset for v2 only). devices is mandatory here;
++    # optional controllers must not prevent this standalone test engine.
++    "$BB" rmdir "$DEST"
++    if [ "$NAME" = devices ]; then
++     echo "ERROR: cannot mount required v1 devices controller" >&2
++     exit 1
++    fi
++    echo "WARNING: enabled controller $NAME is not mountable as v1; skipped" >&2
++   fi
+   fi
+- done < /proc/cgroups
++ done
++ # This package's v1 runc configuration requires devices. Fail before a
++ # misleading container-create error if firmware disabled the controller.
++ [ -f "$R/sys/fs/cgroup/devices/devices.list" ] || {
++  echo 'ERROR: usable cgroup v1 devices controller is missing' >&2; exit 1;
++ }
+ fi
+ "$BB" cat /proc/self/mountinfo > "$BASE/logs/private-mountinfo.txt"
+ "$BB" cat /proc/cgroups > "$BASE/logs/private-cgroups.txt"
+ echo $$ > "$BASE/run/daemon.pid"
+ export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ export LANG=en_US.UTF-8
++# Vendor fix: initial rootfs rejected pivot_root(EINVAL). The runc adapter
++# inserts --no-pivot for create/run; exec-root restoration is in runc-real.
+ unset LD_LIBRARY_PATH LD_PRELOAD HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
+ exec "$BB" chroot "$R" /usr/bin/isulad
+--- a/rootfs/usr/bin/runc
++++ b/rootfs/usr/bin/runc
+@@ -5,7 +5,24 @@
+ """
+ import sys,os,json,tempfile
+ args=sys.argv[1:]
+-if any(x in args for x in ('create','run')):
++# Vendor fix: Linux 5.10 boots from initial rootfs and pivot_root failed
++# with EINVAL. Apply no-pivot to create/run only. The patched runc-real
++# independently restores init's root for exec; --no-pivot is not an exec flag.
++# Parse only the runtime subcommand. A business exec argument named "run"
++# or "create" must never trigger this adapter or receive --no-pivot.
++valued_globals = {'--root', '--log', '--log-format', '--rootless', '--criu'}
++i = 0
++while i < len(args):
++    if not args[i].startswith('-'):
++        break
++    if args[i] in valued_globals:
++        i += 2
++    else:
++        i += 1
++command = args[i] if i < len(args) else None
++if command in ('create', 'run'):
++    if '--no-pivot' not in args[i+1:]:
++        args.insert(i + 1, '--no-pivot')
+     bundle=os.getcwd()
+     for i,a in enumerate(args):
+         if a in ('--bundle','-b') and i+1<len(args): bundle=args[i+1]
+--- a/rootfs/tests/smoke.sh
++++ b/rootfs/tests/smoke.sh
+@@ -9,10 +9,26 @@
+ isula info
+ isula load -i /inbox/arm64-smoke.tar
+ isula run -d --name "$NAME" --runtime runc --network none offline-arm64-smoke:20261029
++# Regression for vendor outer-chroot bug: matching namespace alone is not
++# enough. exec must have the SAME root inode/device as container init.
++check_exec_root() {
++ PID=$(isula inspect "$NAME" | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["State"]["Pid"])')
++ MAIN_ROOT=$(stat -Lc '%d:%i' "/proc/$PID/root")
++ EXEC_ROOT=$(isula exec "$NAME" /bin/busybox stat -Lc '%d:%i' /)
++ echo "init-root=$MAIN_ROOT exec-root=$EXEC_ROOT"
++ [ "$MAIN_ROOT" = "$EXEC_ROOT" ]
++ MAIN_NS=$(readlink "/proc/$PID/ns/mnt")
++ EXEC_NS=$(isula exec "$NAME" /bin/busybox readlink /proc/self/ns/mnt)
++ [ "$MAIN_NS" = "$EXEC_NS" ]
++ isula exec "$NAME" /bin/busybox sh -c 'test -d "/proc/$$"'
++ echo 'PASS: exec mount namespace, root and proc PID view'
++}
++check_exec_root
+ isula exec "$NAME" /bin/busybox uname -m
+ isula exec "$NAME" /bin/busybox sh -c 'echo offline-ok >/tmp/probe; test "$(cat /tmp/probe)" = offline-ok'
+ isula stop "$NAME"
+ isula start "$NAME"
++check_exec_root
+ isula exec "$NAME" /bin/busybox sh -c 'test "$(cat /tmp/probe)" = offline-ok'
+ isula stop "$NAME"
+ echo 'PASS: image import, run, exec, file write and stop/start.'
+--- a/rootfs/tests/test-container.sh
++++ b/rootfs/tests/test-container.sh
+@@ -8,7 +8,10 @@
+ RESULTS="/evidence/results-$RUN_ID"
+ mkdir -p "$RESULTS/redis/sonic-db"
+ cp database_config.json "$RESULTS/redis/sonic-db/database_config.json"
+-exec > >(tee "$RESULTS/test.log") 2>&1
++# Vendor minimal /dev may have no /dev/fd. Bash process substitution
++# (> >(tee ...)) then fails before any container test. Direct file logging
++# has no /dev/fd dependency; control/test.sh reports the evidence location.
++exec > "$RESULTS/test.log" 2>&1
+ echo "engine=$ENGINE image=$IMAGE container=$NAME"
+ uname -a
+ cat /etc/os-release
+--- a/rootfs/tests/test-ot-containers.sh
++++ b/rootfs/tests/test-ot-containers.sh
+@@ -9,7 +9,10 @@
+ fi
+ RESULTS="/evidence/results-ot-$RUN_ID"
+ mkdir -p "$RESULTS"
+-exec > >(tee "$RESULTS/test.log") 2>&1
++# Vendor minimal /dev may have no /dev/fd. Bash process substitution
++# (> >(tee ...)) then fails before any container test. Direct file logging
++# has no /dev/fd dependency; control/test.sh reports the evidence location.
++exec > "$RESULTS/test.log" 2>&1
+ uname -a
+ "$ENGINE" version
+ opts=(--runtime runc)
+--- a/scripts/load-overlay.sh
++++ b/scripts/load-overlay.sh
+@@ -0,0 +1,18 @@
++#!/bin/sh
++# Explicit host-side operation only. A matching module must come from the
++# vendor/kernel build; shipping a random overlay.ko would not fix missing ABI.
++set -eu
++case "$0" in */*) D=${0%/*};; *) D=.;; esac
++BASE=$(CDPATH= cd -- "$D/.." && pwd -P)
++BB="$BASE/bin/busybox"
++[ "$("$BB" id -u)" = 0 ] || { echo 'Run as root'; exit 1; }
++if "$BB" grep -qw overlay /proc/filesystems; then echo 'OverlayFS already available'; exit 0; fi
++[ "$#" = 1 ] && [ -f "$1" ] || { echo 'Usage: sh scripts/load-overlay.sh /absolute/path/to/vendor/overlay.ko'; exit 2; }
++"$BB" uname -r
++if ! "$BB" insmod "$1"; then
++ echo 'Module rejected: inspect dmesg for vermagic, symbols, signature or dependencies.' >&2
++ "$BB" dmesg | "$BB" tail -n 30
++ exit 1
++fi
++"$BB" grep -w overlay /proc/filesystems || { echo 'Module loaded but OverlayFS not registered'; exit 1; }
++echo 'OverlayFS registered; continue with sh control.sh start'
+--- a/verify.sh
++++ b/verify.sh
+@@ -0,0 +1,7 @@
++#!/bin/sh
++# Uses bundled BusyBox: target does not need a system sha256sum or Python.
++# Hashes detect transfer errors/stale files, not authenticity by themselves.
++set -eu
++case "$0" in */*) D=${0%/*};; *) D=.;; esac
++cd "$D"
++exec ./bin/busybox sha256sum -c SHA256SUMS

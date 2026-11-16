@@ -1,0 +1,382 @@
++ docker image inspect sonic-database-standalone:arm64-rebuild-20261116
+[
+    {
+        "Architecture": "arm64",
+        "Config": {
+            "Cmd": [
+                "/etc/redis/sonic-standalone.conf"
+            ],
+            "Entrypoint": [
+                "/usr/bin/redis-server"
+            ],
+            "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "DEBIAN_FRONTEND=noninteractive"
+            ],
+            "Labels": {
+                "org.opencontainers.image.revision": "a77538a37517b9a953e32191a77e83c6b5a11c14",
+                "org.opencontainers.image.title": "SONiC database ARM64 standalone test",
+                "sonic.test.scope": "Standalone Redis and swsscommon; not full SONiC database"
+            },
+            "StopSignal": "SIGTERM"
+        },
+        "Created": "2026-11-16T16:50:01.310514983+08:00",
+        "Descriptor": {
+            "annotations": {
+                "io.containerd.image.name": "docker.io/library/sonic-database-standalone:arm64-rebuild-20261116",
+                "org.opencontainers.image.ref.name": "arm64-rebuild-20261116"
+            },
+            "digest": "sha256:1d7f082ae6c8e83db999cf48fb987bdaaa650296dc1930eb6d6782ac1b006285",
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "size": 2290
+        },
+        "Id": "sha256:1d7f082ae6c8e83db999cf48fb987bdaaa650296dc1930eb6d6782ac1b006285",
+        "Metadata": {
+            "LastTagTime": "2026-11-16T09:06:57.177476894Z"
+        },
+        "Os": "linux",
+        "Parent": "sha256:3106c555b3fb714bc31b33427042d1b9c0448ba8605b1d8d86f28a23595a6203",
+        "RepoDigests": [
+            "isulad-recipe-database@sha256:1d7f082ae6c8e83db999cf48fb987bdaaa650296dc1930eb6d6782ac1b006285",
+            "sonic-database-standalone@sha256:1d7f082ae6c8e83db999cf48fb987bdaaa650296dc1930eb6d6782ac1b006285"
+        ],
+        "RepoTags": [
+            "isulad-recipe-database:rebuild-20261116",
+            "sonic-database-standalone:arm64-rebuild-20261116"
+        ],
+        "RootFS": {
+            "Layers": [
+                "sha256:c02bc3f14703b1601ba911ca2e53fd6f47eb4fcf760c32dca6c2b4485f19d78c",
+                "sha256:0cd1eda0ece1218a0c5c80258c5f99d0bc1a0398e7b833e97824080a9cb13465",
+                "sha256:f162af9656edabbe4ac55a59dc0e42ff727bf299f462456959bbd42ba9f1000a",
+                "sha256:b805587c31b49ca360dbfa44b3db98770cacd375780c2784a8cf3b134e86f47a",
+                "sha256:07bddc2ba266f56c8dcef7d419b52b4ed77f78bcb4888cc0a0312e8f7e14e787",
+                "sha256:8e4e143dec2b63bca2c18a936699d8170bf40016212bd57e41782b1fe101aa47",
+                "sha256:f68e42167a0bc91d6b7355fa7bee72dd8e771c279ea1a459a2c6c60b8895304a",
+                "sha256:9133353fd653b92d8a8fa2e69536c78be2f149092ba7c04401e7d32115062ee2",
+                "sha256:ce0f9e5c6d3ab39c89f66384f3808f2361efc8a0da0d2e1785a0eebac561edab"
+            ],
+            "Type": "layers"
+        },
+        "Size": 76036256
+    }
+]
++ docker run -d --name rebuild-test-database-2a31270957 --platform linux/arm64 --network none -e ALLOW_EMULATION=1 -v /tmp/isulad-image-validation-20261116/database:/probe-output:rw sonic-database-standalone:arm64-rebuild-20261116 /etc/redis/sonic-standalone.conf --ignore-warnings ARM64-COW-BUG
+1686b8d42dab918618760a391665678f9cf9d03d0e18acc8af49e2e0e953d031
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-database-2a31270957 redis-cli -s /var/run/redis/redis.sock PING
+PONG
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-database-2a31270957 dpkg --print-architecture
+arm64
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-database-2a31270957 python3 -c from swsscommon import swsscommon;print("swsscommon-import-ok")
+swsscommon-import-ok
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-database-2a31270957 redis-cli -s /var/run/redis/redis.sock SET rebuild_probe initial
+OK
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-database-2a31270957 redis-cli -s /var/run/redis/redis.sock GET rebuild_probe
+initial
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-database-2a31270957 python3 -c from swsscommon import swsscommon as s; d=s.DBConnector(0,"/var/run/redis/redis.sock",0); t=s.Table(d,"REBUILD_PROBE");t.set("key",s.FieldValuePairs([("value","ok")]));ok,v=t.get("key");assert ok and dict(v)["value"]=="ok";t._del("key");print("swsscommon-redis-read-write-ok")
+swsscommon-redis-read-write-ok
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-database-2a31270957 python3 -c from pathlib import Path;Path("/probe-output/mount.txt").write_text("mount-ok")
++ docker stop rebuild-test-database-2a31270957
+rebuild-test-database-2a31270957
++ docker start rebuild-test-database-2a31270957
+rebuild-test-database-2a31270957
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-database-2a31270957 redis-cli -s /var/run/redis/redis.sock PING
+PONG
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-database-2a31270957 dpkg --print-architecture
+arm64
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-database-2a31270957 python3 -c from swsscommon import swsscommon;print("swsscommon-import-ok")
+swsscommon-import-ok
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-database-2a31270957 redis-cli -s /var/run/redis/redis.sock SET rebuild_probe restart
+OK
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-database-2a31270957 redis-cli -s /var/run/redis/redis.sock GET rebuild_probe
+restart
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-database-2a31270957 python3 -c from swsscommon import swsscommon as s; d=s.DBConnector(0,"/var/run/redis/redis.sock",0); t=s.Table(d,"REBUILD_PROBE");t.set("key",s.FieldValuePairs([("value","ok")]));ok,v=t.get("key");assert ok and dict(v)["value"]=="ok";t._del("key");print("swsscommon-redis-read-write-ok")
+swsscommon-redis-read-write-ok
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-database-2a31270957 python3 -c from pathlib import Path;Path("/probe-output/mount.txt").write_text("mount-ok")
++ docker image inspect sonic-otss-standalone:arm64-rebuild-20261116
+[
+    {
+        "Architecture": "arm64",
+        "Config": {
+            "Cmd": [
+                "otss"
+            ],
+            "Entrypoint": [
+                "/usr/bin/python3",
+                "/usr/local/bin/standalone-probe.py"
+            ],
+            "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "DEBIAN_FRONTEND=noninteractive"
+            ],
+            "Labels": {
+                "org.opencontainers.image.revision": "a77538a37517b9a953e32191a77e83c6b5a11c14",
+                "org.opencontainers.image.title": "SONiC database ARM64 standalone test",
+                "sonic.test.scope": "ARM64 otss standalone inspection; business daemon not started by default"
+            },
+            "StopSignal": "SIGTERM"
+        },
+        "Created": "2026-11-16T17:05:59.61131429+08:00",
+        "Descriptor": {
+            "annotations": {
+                "io.containerd.image.name": "docker.io/library/sonic-otss-standalone:arm64-rebuild-20261116",
+                "org.opencontainers.image.ref.name": "arm64-rebuild-20261116"
+            },
+            "digest": "sha256:2fd07ff56ae5f7ae7f368776a19b2b407c64c3186efe70477e9d9065402110c9",
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "size": 3614
+        },
+        "Id": "sha256:2fd07ff56ae5f7ae7f368776a19b2b407c64c3186efe70477e9d9065402110c9",
+        "Metadata": {
+            "LastTagTime": "2026-11-16T09:06:59.264533489Z"
+        },
+        "Os": "linux",
+        "Parent": "sha256:ce7580e3259fbcdda191adafdfa005184d3d9864ae7e3681a83cd5da73cd3f94",
+        "RepoDigests": [
+            "sonic-otss-standalone@sha256:2fd07ff56ae5f7ae7f368776a19b2b407c64c3186efe70477e9d9065402110c9"
+        ],
+        "RepoTags": [
+            "sonic-otss-standalone:arm64-rebuild-20261116"
+        ],
+        "RootFS": {
+            "Layers": [
+                "sha256:c02bc3f14703b1601ba911ca2e53fd6f47eb4fcf760c32dca6c2b4485f19d78c",
+                "sha256:0cd1eda0ece1218a0c5c80258c5f99d0bc1a0398e7b833e97824080a9cb13465",
+                "sha256:f162af9656edabbe4ac55a59dc0e42ff727bf299f462456959bbd42ba9f1000a",
+                "sha256:b805587c31b49ca360dbfa44b3db98770cacd375780c2784a8cf3b134e86f47a",
+                "sha256:07bddc2ba266f56c8dcef7d419b52b4ed77f78bcb4888cc0a0312e8f7e14e787",
+                "sha256:8e4e143dec2b63bca2c18a936699d8170bf40016212bd57e41782b1fe101aa47",
+                "sha256:f68e42167a0bc91d6b7355fa7bee72dd8e771c279ea1a459a2c6c60b8895304a",
+                "sha256:9133353fd653b92d8a8fa2e69536c78be2f149092ba7c04401e7d32115062ee2",
+                "sha256:ce0f9e5c6d3ab39c89f66384f3808f2361efc8a0da0d2e1785a0eebac561edab",
+                "sha256:a5f435320b4625385a3b699a7d50bfbada132c79508f046e24655e2279d8ea85",
+                "sha256:8dc72b5794f5d2796bdf4bc8ed15de29f30a41870ceba2bc79477422742540f3",
+                "sha256:291d5ed49249e0c9a3bb791da6ee68646d8472761f0687766ec1387a71746378",
+                "sha256:80545be196b01385707c166f9e927b9f6c2505d7ed0163836662f377d22eba25",
+                "sha256:a64b199bf330a72a7a7ceff9fded1e2033e5b61c4b26d4a24de52b9ef1131182",
+                "sha256:34ccbd91635a2435c54ec509cc303b2379b3230adc513dda6c2596908ac81c25"
+            ],
+            "Type": "layers"
+        },
+        "Size": 78339133
+    }
+]
++ docker run -d --name rebuild-test-otss-bbe1d146ac --platform linux/arm64 --network none -e ALLOW_EMULATION=1 -v /tmp/isulad-image-validation-20261116/otss:/probe-output:rw sonic-otss-standalone:arm64-rebuild-20261116
+78a3f961e0aa1c24534215c77505b6dfa1fac11e3e512548feff3f217759659e
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-otss-bbe1d146ac test -f /tmp/standalone-probe-ready
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-otss-bbe1d146ac test -f /tmp/standalone-probe-ready
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-otss-bbe1d146ac dpkg --print-architecture
+arm64
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-otss-bbe1d146ac python3 -c from swsscommon import swsscommon;print("swsscommon-import-ok")
+swsscommon-import-ok
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-otss-bbe1d146ac python3 /usr/local/bin/standalone-probe.py otss --check
+loaded libotaimeta.so
+loaded libotaimetadata.so
+loaded libotairedis.so
+otss: ARM64 libraries loaded; standalone inspection process ready; business daemon not started
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-otss-bbe1d146ac python3 /usr/local/bin/check-business-binary.py otss
+49:C 16 Nov 2026 09:07:19.396 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+49:C 16 Nov 2026 09:07:19.399 # Redis version=7.0.15, bits=64, commit=00000000, modified=0, pid=49, just started
+49:C 16 Nov 2026 09:07:19.399 # Configuration loaded
+49:M 16 Nov 2026 09:07:19.408 * Increased maximum number of open files to 10032 (it was originally set to 1024).
+49:M 16 Nov 2026 09:07:19.408 * monotonic clock: POSIX clock_gettime
+49:M 16 Nov 2026 09:07:19.448 * Running mode=standalone, port=0.
+49:M 16 Nov 2026 09:07:19.449 # Server initialized
+49:M 16 Nov 2026 09:07:19.450 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+49:M 16 Nov 2026 09:07:19.489 # WARNING Your kernel has a bug that could lead to data corruption during background save. Please upgrade to the latest stable kernel.
+49:M 16 Nov 2026 09:07:19.532 * The server is now ready to accept connections at /var/run/redis/redis.sock
+usage: orchagent [-h] [-b batch_size] [-m MAC] [-i INST_ID]
+    -h: display this message
+    -b batch_size: set consumer table pop operation batch size (default 128)
+    -i INST_ID: set the ASIC instance_id in multi-asic platform
+    -c flexcounter_json_filename: flexcounter json filename
+
+PASS: otss binary help executed with private in-container Redis; no inter-container communication
+49:signal-handler (1794820039) Received SIGTERM scheduling shutdown...
+49:M 16 Nov 2026 09:07:19.952 # User requested shutdown...
+49:M 16 Nov 2026 09:07:19.953 * Removing the unix socket file.
+49:M 16 Nov 2026 09:07:19.953 # Redis is now ready to exit, bye bye...
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-otss-bbe1d146ac python3 -c from pathlib import Path;Path("/probe-output/mount.txt").write_text("mount-ok")
++ docker stop rebuild-test-otss-bbe1d146ac
+rebuild-test-otss-bbe1d146ac
++ docker start rebuild-test-otss-bbe1d146ac
+rebuild-test-otss-bbe1d146ac
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-otss-bbe1d146ac test -f /tmp/standalone-probe-ready
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-otss-bbe1d146ac test -f /tmp/standalone-probe-ready
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-otss-bbe1d146ac dpkg --print-architecture
+arm64
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-otss-bbe1d146ac python3 -c from swsscommon import swsscommon;print("swsscommon-import-ok")
+swsscommon-import-ok
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-otss-bbe1d146ac python3 /usr/local/bin/standalone-probe.py otss --check
+loaded libotaimeta.so
+loaded libotaimetadata.so
+loaded libotairedis.so
+otss: ARM64 libraries loaded; standalone inspection process ready; business daemon not started
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-otss-bbe1d146ac python3 /usr/local/bin/check-business-binary.py otss
+50:C 16 Nov 2026 09:07:27.311 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+50:C 16 Nov 2026 09:07:27.314 # Redis version=7.0.15, bits=64, commit=00000000, modified=0, pid=50, just started
+50:C 16 Nov 2026 09:07:27.315 # Configuration loaded
+50:M 16 Nov 2026 09:07:27.324 * Increased maximum number of open files to 10032 (it was originally set to 1024).
+50:M 16 Nov 2026 09:07:27.325 * monotonic clock: POSIX clock_gettime
+50:M 16 Nov 2026 09:07:27.362 * Running mode=standalone, port=0.
+50:M 16 Nov 2026 09:07:27.362 # Server initialized
+50:M 16 Nov 2026 09:07:27.362 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+50:M 16 Nov 2026 09:07:27.399 # WARNING Your kernel has a bug that could lead to data corruption during background save. Please upgrade to the latest stable kernel.
+50:M 16 Nov 2026 09:07:27.439 * The server is now ready to accept connections at /var/run/redis/redis.sock
+usage: orchagent [-h] [-b batch_size] [-m MAC] [-i INST_ID]
+    -h: display this message
+    -b batch_size: set consumer table pop operation batch size (default 128)
+    -i INST_ID: set the ASIC instance_id in multi-asic platform
+    -c flexcounter_json_filename: flexcounter json filename
+
+PASS: otss binary help executed with private in-container Redis; no inter-container communication
+50:signal-handler (1794820047) Received SIGTERM scheduling shutdown...
+50:M 16 Nov 2026 09:07:27.858 # User requested shutdown...
+50:M 16 Nov 2026 09:07:27.859 * Removing the unix socket file.
+50:M 16 Nov 2026 09:07:27.859 # Redis is now ready to exit, bye bye...
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-otss-bbe1d146ac python3 -c from pathlib import Path;Path("/probe-output/mount.txt").write_text("mount-ok")
++ docker image inspect sonic-syncd-standalone:arm64-rebuild-20261116
+[
+    {
+        "Architecture": "arm64",
+        "Config": {
+            "Cmd": [
+                "syncd"
+            ],
+            "Entrypoint": [
+                "/usr/bin/python3",
+                "/usr/local/bin/standalone-probe.py"
+            ],
+            "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "DEBIAN_FRONTEND=noninteractive"
+            ],
+            "Labels": {
+                "org.opencontainers.image.revision": "a77538a37517b9a953e32191a77e83c6b5a11c14",
+                "org.opencontainers.image.title": "SONiC database ARM64 standalone test",
+                "sonic.test.scope": "ARM64 syncd standalone inspection; business daemon not started by default"
+            },
+            "StopSignal": "SIGTERM"
+        },
+        "Created": "2026-11-16T17:06:06.678930653+08:00",
+        "Descriptor": {
+            "annotations": {
+                "io.containerd.image.name": "docker.io/library/sonic-syncd-standalone:arm64-rebuild-20261116",
+                "org.opencontainers.image.ref.name": "arm64-rebuild-20261116"
+            },
+            "digest": "sha256:9f6c2606ddde364f88287624291fb36470f2911ed9d8303a098ccb3702893e76",
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "size": 3391
+        },
+        "Id": "sha256:9f6c2606ddde364f88287624291fb36470f2911ed9d8303a098ccb3702893e76",
+        "Metadata": {
+            "LastTagTime": "2026-11-16T09:07:01.237298768Z"
+        },
+        "Os": "linux",
+        "Parent": "sha256:79f948a75848f07d85e929ba6b1b818cf4539bf868f8f4ad282ebf9fa83c3ffe",
+        "RepoDigests": [
+            "sonic-syncd-standalone@sha256:9f6c2606ddde364f88287624291fb36470f2911ed9d8303a098ccb3702893e76"
+        ],
+        "RepoTags": [
+            "sonic-syncd-standalone:arm64-rebuild-20261116"
+        ],
+        "RootFS": {
+            "Layers": [
+                "sha256:c02bc3f14703b1601ba911ca2e53fd6f47eb4fcf760c32dca6c2b4485f19d78c",
+                "sha256:0cd1eda0ece1218a0c5c80258c5f99d0bc1a0398e7b833e97824080a9cb13465",
+                "sha256:f162af9656edabbe4ac55a59dc0e42ff727bf299f462456959bbd42ba9f1000a",
+                "sha256:b805587c31b49ca360dbfa44b3db98770cacd375780c2784a8cf3b134e86f47a",
+                "sha256:07bddc2ba266f56c8dcef7d419b52b4ed77f78bcb4888cc0a0312e8f7e14e787",
+                "sha256:8e4e143dec2b63bca2c18a936699d8170bf40016212bd57e41782b1fe101aa47",
+                "sha256:f68e42167a0bc91d6b7355fa7bee72dd8e771c279ea1a459a2c6c60b8895304a",
+                "sha256:9133353fd653b92d8a8fa2e69536c78be2f149092ba7c04401e7d32115062ee2",
+                "sha256:ce0f9e5c6d3ab39c89f66384f3808f2361efc8a0da0d2e1785a0eebac561edab",
+                "sha256:a5f435320b4625385a3b699a7d50bfbada132c79508f046e24655e2279d8ea85",
+                "sha256:84a484459f9f3366069c7cc2d69319a4a1ba4bd0897e97529f555544c828529d",
+                "sha256:3c8762c8cdc6b8c7758078aa5ac2d53dad72ccdb1bbe7788d50bf85a4e11c5ce",
+                "sha256:400c2239da3d9168d0daf4456b5bd6664d115ed67486d4b6153ab81cb38e1106",
+                "sha256:1a8c03079b52000ff2b63e3030cce4bc795086f8a5808f23d60b8c4936786d7f"
+            ],
+            "Type": "layers"
+        },
+        "Size": 77597896
+    }
+]
++ docker run -d --name rebuild-test-syncd-172303bd88 --platform linux/arm64 --network none -e ALLOW_EMULATION=1 -v /tmp/isulad-image-validation-20261116/syncd:/probe-output:rw sonic-syncd-standalone:arm64-rebuild-20261116
+9ce3446c017581abc1c0a1aab1143d971f5f0fd7ec1b47ebb4887c2d0a6fddbf
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-syncd-172303bd88 test -f /tmp/standalone-probe-ready
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-syncd-172303bd88 test -f /tmp/standalone-probe-ready
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-syncd-172303bd88 dpkg --print-architecture
+arm64
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-syncd-172303bd88 python3 -c from swsscommon import swsscommon;print("swsscommon-import-ok")
+swsscommon-import-ok
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-syncd-172303bd88 python3 /usr/local/bin/standalone-probe.py syncd --check
+loaded libotaimeta.so
+loaded libotaimetadata.so
+loaded libotaivs.so
+syncd: ARM64 libraries loaded; standalone inspection process ready; business daemon not started
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-syncd-172303bd88 python3 /usr/local/bin/check-business-binary.py syncd
+50:C 16 Nov 2026 09:07:35.679 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+50:C 16 Nov 2026 09:07:35.683 # Redis version=7.0.15, bits=64, commit=00000000, modified=0, pid=50, just started
+50:C 16 Nov 2026 09:07:35.683 # Configuration loaded
+50:M 16 Nov 2026 09:07:35.693 * Increased maximum number of open files to 10032 (it was originally set to 1024).
+50:M 16 Nov 2026 09:07:35.693 * monotonic clock: POSIX clock_gettime
+50:M 16 Nov 2026 09:07:35.727 * Running mode=standalone, port=0.
+50:M 16 Nov 2026 09:07:35.728 # Server initialized
+50:M 16 Nov 2026 09:07:35.729 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+50:M 16 Nov 2026 09:07:35.764 # WARNING Your kernel has a bug that could lead to data corruption during background save. Please upgrade to the latest stable kernel.
+50:M 16 Nov 2026 09:07:35.801 * The server is now ready to accept connections at /var/run/redis/redis.sock
+Usage: syncd [-p profile] [-l] [-h]
+    -p --profile profile
+        Provide profile map file
+    -l --enableBulk
+        Enable OTAI Bulk support
+    -h --help
+        Print out this message
+
+PASS: syncd binary help executed with private in-container Redis; no inter-container communication
+50:signal-handler (1794820056) Received SIGTERM scheduling shutdown...
+50:M 16 Nov 2026 09:07:36.118 # User requested shutdown...
+50:M 16 Nov 2026 09:07:36.119 * Removing the unix socket file.
+50:M 16 Nov 2026 09:07:36.119 # Redis is now ready to exit, bye bye...
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-syncd-172303bd88 python3 -c from pathlib import Path;Path("/probe-output/mount.txt").write_text("mount-ok")
++ docker stop rebuild-test-syncd-172303bd88
+rebuild-test-syncd-172303bd88
++ docker start rebuild-test-syncd-172303bd88
+rebuild-test-syncd-172303bd88
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-syncd-172303bd88 test -f /tmp/standalone-probe-ready
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-syncd-172303bd88 test -f /tmp/standalone-probe-ready
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-syncd-172303bd88 dpkg --print-architecture
+arm64
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-syncd-172303bd88 python3 -c from swsscommon import swsscommon;print("swsscommon-import-ok")
+swsscommon-import-ok
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-syncd-172303bd88 python3 /usr/local/bin/standalone-probe.py syncd --check
+loaded libotaimeta.so
+loaded libotaimetadata.so
+loaded libotaivs.so
+syncd: ARM64 libraries loaded; standalone inspection process ready; business daemon not started
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-syncd-172303bd88 python3 /usr/local/bin/check-business-binary.py syncd
+50:C 16 Nov 2026 09:07:43.622 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+50:C 16 Nov 2026 09:07:43.626 # Redis version=7.0.15, bits=64, commit=00000000, modified=0, pid=50, just started
+50:C 16 Nov 2026 09:07:43.626 # Configuration loaded
+50:M 16 Nov 2026 09:07:43.635 * Increased maximum number of open files to 10032 (it was originally set to 1024).
+50:M 16 Nov 2026 09:07:43.635 * monotonic clock: POSIX clock_gettime
+50:M 16 Nov 2026 09:07:43.671 * Running mode=standalone, port=0.
+50:M 16 Nov 2026 09:07:43.671 # Server initialized
+50:M 16 Nov 2026 09:07:43.671 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+50:M 16 Nov 2026 09:07:43.712 # WARNING Your kernel has a bug that could lead to data corruption during background save. Please upgrade to the latest stable kernel.
+50:M 16 Nov 2026 09:07:43.753 * The server is now ready to accept connections at /var/run/redis/redis.sock
+Usage: syncd [-p profile] [-l] [-h]
+    -p --profile profile
+        Provide profile map file
+    -l --enableBulk
+        Enable OTAI Bulk support
+    -h --help
+        Print out this message
+
+PASS: syncd binary help executed with private in-container Redis; no inter-container communication
+50:signal-handler (1794820064) Received SIGTERM scheduling shutdown...
+50:M 16 Nov 2026 09:07:44.171 # User requested shutdown...
+50:M 16 Nov 2026 09:07:44.172 * Removing the unix socket file.
+50:M 16 Nov 2026 09:07:44.172 # Redis is now ready to exit, bye bye...
++ docker exec -e ALLOW_EMULATION=1 rebuild-test-syncd-172303bd88 python3 -c from pathlib import Path;Path("/probe-output/mount.txt").write_text("mount-ok")

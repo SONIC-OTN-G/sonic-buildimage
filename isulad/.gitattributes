@@ -1,0 +1,13 @@
+*.sh text eol=lf
+*.py text eol=lf
+Dockerfile* text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.tsv text eol=lf
+*.patch text eol=lf
+*.tar -text -filter -diff -merge
+*.gz -text -filter -diff -merge
+*.xz -text -filter -diff -merge
+
+# Build inputs are hash-locked; preserve bytes across Windows/Linux checkouts.
+build/** -text

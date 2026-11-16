@@ -1,0 +1,22 @@
+[
+  {
+    "protocol": "CLI",
+    "native_readback": 11,
+    "passed": true
+  },
+  {
+    "protocol": "REST",
+    "native_readback": 12,
+    "passed": true
+  },
+  {
+    "protocol": "gNMI",
+    "native_readback": 13,
+    "passed": true
+  },
+  {
+    "protocol": "NETCONF",
+    "native_readback": 14,
+    "passed": true
+  }
+]
