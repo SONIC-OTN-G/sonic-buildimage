@@ -17,7 +17,7 @@ REST_SERVER=$(echo $MGMT_VARS | jq -r '.rest_server')
 
 if [ -n "$REST_SERVER" ]; then
     SERVER_PORT=$(echo $REST_SERVER | jq -r '.port // empty')
-    CLIENT_AUTH=$(echo $REST_SERVER | jq -r '.client_auth // "user"')
+    CLIENT_AUTH=$(echo $REST_SERVER | jq -r '.client_auth // "none"')
     LOG_LEVEL=$(echo $REST_SERVER | jq -r '.log_level // empty')
 
     SERVER_CRT=$(echo $REST_SERVER | jq -r '.server_crt // empty')
@@ -25,9 +25,10 @@ if [ -n "$REST_SERVER" ]; then
     CA_CRT=$(echo $REST_SERVER | jq -r '.ca_crt // empty')
 fi
 
-# Default to user authentication when not explicitly configured
+# Default to no authentication when not explicitly configured:
+# the CLI client (cli_client.py) has no auth logic; "user" mode 401s every request.
 if [ -z "$CLIENT_AUTH" ]; then
-    CLIENT_AUTH="user"
+    CLIENT_AUTH="none"
 fi
 
 if [[ -z $SERVER_CRT ]] && [[ -z $SERVER_KEY ]] && [[ -z $CA_CRT ]]; then

@@ -11,8 +11,14 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y g++ python3-dev libxml2 libcurl4t64 libcjson1
 
+# six/natsort are imported at runtime by the CLI actioner scripts
+# (sonic-cli-if.py imports natsort; cli_client.py imports six.moves).
+# The trixie/python3.13 base image no longer ships python3-six as a system
+# package, so without these every sonic-cli command dies with ModuleNotFoundError.
 RUN pip3 install requests \
-                 urllib3
+                 urllib3 \
+                 six \
+                 natsort
 
 {% if docker_sonic_mgmt_framework_debs.strip() -%}
 # Copy built Debian packages
